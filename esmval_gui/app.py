@@ -4,16 +4,27 @@ import os
 import shutil
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException, Query
-from fastapi.responses import FileResponse
+from fastapi import FastAPI, HTTPException, Query, Request
+from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel, Field
 
-from . import catalogue, configuration, esgf, recipes, remote
+from . import auth, catalogue, configuration, esgf, recipes, remote
 
 
 ROOT = Path(__file__).resolve().parent.parent
 STATE = Path(os.environ.get("ESMVAL_GUI_STATE_DIR", ROOT / ".esmval-gui"))
 app = FastAPI(title="ESMValTool GUI", docs_url="/api/docs", openapi_url="/api/openapi.json")
+
+
+@app.middleware("http")
+async def require_api_token(request: Request, call_next):
+    if request.url.path.startswith("/api/") and not auth.authorized(request.headers.get("X-ESMVal-Token")):
+        return JSONResponse({"detail": "GUI access token required"}, status_code=401,
+                            headers={"Cache-Control": "no-store"})
+    response = await call_next(request)
+    if request.url.path.startswith("/api/"):
+        response.headers["Cache-Control"] = "no-store"
+    return response
 
 
 class RecipeInput(BaseModel):

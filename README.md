@@ -15,7 +15,9 @@ python -m venv .venv
 .venv/bin/python -m esmval_gui
 ```
 
-The app opens at <http://127.0.0.1:8765>. Use `--no-browser` to start it without opening a tab, or `--port 8766` to choose another port. Keep the server on its default loopback address: the API can submit and cancel Gadi jobs through your SSH account and has no separate login screen. For a remote GUI host, connect through an SSH tunnel instead of exposing the port:
+The app opens at <http://127.0.0.1:8765>. Use `--no-browser` to start it without opening a tab, or `--port 8766` to choose another port. On startup, the server prints a random access token in the terminal. Enter that token in the browser to unlock the GUI; it is kept in the tab's session storage and changes when the server restarts. For a managed deployment, set `ESMVAL_GUI_ACCESS_TOKEN` to a secret of at least 32 characters before starting the server. Do not put the token in a URL or a shared log.
+
+The server only accepts a loopback bind address. The API can submit and cancel Gadi jobs through your SSH account, so keep it on a trusted personal machine. For a remote GUI host, connect through an SSH tunnel instead of exposing the port:
 
 ```bash
 # On your own computer, after starting the GUI on the remote host:
@@ -52,7 +54,7 @@ Configure an SSH host or alias in `~/.ssh/config` on the GUI host, then check th
 ssh -o BatchMode=yes your-gadi-alias 'command -v qsub'
 ```
 
-Enter that alias in the GUI's **Submit to Gadi** dialog and use **Check Gadi connection**. The Gadi account must have an NCI project, PBS access, an `esmvaltool` executable, and an ESMValTool user config with the data roots needed by the recipe. Set the executable path or a one-line environment setup command in the dialog if it is not already on `PATH`. The GUI can use an SSH agent or keys configured for the account; it does not store credentials. In the dialog, choose the remote working directory, storage projects, and config file or directory before submitting.
+Enter that alias in the GUI's **Submit to Gadi** dialog and use **Check Gadi connection**. The Gadi account must have an NCI project, PBS access, an `esmvaltool` executable, and an ESMValTool user config with the data roots needed by the recipe. Set the executable path or a one-line environment setup command in the dialog if it is not already on `PATH`. If the SSH private key has a passphrase, unlock it in your operating system's SSH agent first (for example, `ssh-add /path/to/private-key` in a terminal). The GUI uses noninteractive SSH and never requests, receives, or stores the private key or passphrase. In the dialog, choose the remote working directory, storage projects, and config file or directory before submitting.
 
 The application is run from this checkout rather than installed as a Python package. If you update the checkout later, restart the server to load backend changes.
 

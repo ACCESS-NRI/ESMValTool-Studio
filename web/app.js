@@ -6,10 +6,22 @@ const variableListName = (item) => variableGroup(item) ? `${variableName(item)} 
 const realmNames = { atmos: 'Atmosphere', atmosChem: 'Atmospheric chemistry', land: 'Land', ocean: 'Ocean', ocnBgchem: 'Ocean biogeochemistry', seaIce: 'Sea ice' };
 const realmLabel = (realm) => realmNames[realm] || realm;
 const state = { yaml: '', summary: null, name: '', libraryInfo: null, dirty: false, selected: null, jobs: [], selectedJob: null, parseTimer: null, catalogue: null, builderProfile: '', builderBrick: '', builderEditing: false, isNewRecipe: false, recipePreviewTimer: null, recipePreviewVersion: 0, configFiles: [], configSummary: null, configVersion: 0 };
+let accessToken = sessionStorage.getItem('esmval-gui-access-token') || '';
+
+function showAuth(message = '') {
+  accessToken = '';
+  sessionStorage.removeItem('esmval-gui-access-token');
+  document.querySelector('.shell').inert = true;
+  $('authError').textContent = message;
+  $('authGate').hidden = false;
+  $('authTokenInput').value = '';
+  $('authTokenInput').focus();
+}
 
 async function api(path, options = {}) {
-  const response = await fetch('/api' + path, { headers: { 'Content-Type': 'application/json' }, ...options });
+  const response = await fetch('/api' + path, { ...options, headers: { 'Content-Type': 'application/json', ...(accessToken ? {'X-ESMVal-Token': accessToken} : {}), ...options.headers } });
   const body = await response.json();
+  if (response.status === 401) showAuth('The token is missing or no longer valid. Enter the token from the server terminal.');
   if (!response.ok) throw new Error(typeof body.detail === 'string' ? body.detail : JSON.stringify(body.detail || body));
   return body;
 }
@@ -850,4 +862,25 @@ function scheduleConnections() {
 $('pipeline').addEventListener('scroll', scheduleConnections);
 window.addEventListener('resize', scheduleConnections);
 new ResizeObserver(scheduleConnections).observe($('pipeline'));
-restoreSettings(); loadCatalogue(); loadLibrary();
+function startStudio() {
+  $('authGate').hidden = true;
+  document.querySelector('.shell').inert = false;
+  loadCatalogue(); loadLibrary();
+}
+$('authForm').addEventListener('submit', async (event) => {
+  event.preventDefault();
+  accessToken = $('authTokenInput').value.trim();
+  $('authSubmit').disabled = true;
+  $('authError').textContent = '';
+  try {
+    await api('/health');
+    sessionStorage.setItem('esmval-gui-access-token', accessToken);
+    $('authTokenInput').value = '';
+    startStudio();
+  } catch (error) {
+    $('authError').textContent = error.message === 'GUI access token required' ? 'That token was not accepted.' : error.message;
+  } finally { $('authSubmit').disabled = false; }
+});
+restoreSettings();
+if (accessToken) api('/health').then(startStudio).catch((error) => showAuth(error.message));
+else showAuth();

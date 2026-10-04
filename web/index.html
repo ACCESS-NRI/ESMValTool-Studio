@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>ESMVal Studio</title>
-  <link rel="stylesheet" href="/style.css?v=config-view-1">
+  <link rel="stylesheet" href="/style.css?v=auth-gate-1">
 </head>
 <body>
   <div class="shell">
@@ -68,6 +68,18 @@
       <aside class="inspector panel"><div class="panel-heading"><div><div class="eyebrow">INSPECT</div><h2>Details</h2></div></div><div id="inspectorContent" class="inspector-content"><div class="empty-state small">Select a profile, variable, or diagnostic in the pipeline.</div></div></aside>
     </div>
   </div>
+  <div id="authGate" class="auth-gate">
+    <form id="authForm" class="auth-card" aria-label="Unlock ESMVal Studio">
+      <img src="/esmvaltool-logo.png" alt="ESMValTool">
+      <div class="eyebrow">PRIVATE WORKSPACE</div>
+      <h2>Unlock ESMVal Studio</h2>
+      <p>Enter the access token printed in the terminal when the GUI server started. Your Gadi SSH key stays with OpenSSH.</p>
+      <label for="authTokenInput">Access token</label>
+      <input id="authTokenInput" type="password" required autocomplete="off" spellcheck="false">
+      <p id="authError" class="auth-error" role="alert"></p>
+      <button id="authSubmit" class="button primary" type="submit">Unlock</button>
+    </form>
+  </div>
   <div id="toast" class="toast" role="status"></div>
   <div id="newRecipeModal" class="modal-backdrop" hidden>
     <div class="modal recipe-modal" role="dialog" aria-modal="true" aria-labelledby="newRecipeTitle">
@@ -129,6 +141,6 @@
     </div>
   </div>
   <input id="fileInput" type="file" accept=".yml,.yaml,text/yaml" hidden>
-  <script src="/app.js?v=config-view-1" defer></script>
+  <script src="/app.js?v=auth-gate-1" defer></script>
 </body>
 </html>
