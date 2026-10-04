@@ -8,7 +8,7 @@ from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel, Field
 
-from . import auth, catalogue, configuration, esgf, recipes, remote
+from . import auth, catalogue, configuration, esgf, recipes, remote, scripts_catalogue
 
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -297,6 +297,11 @@ def preprocessors():
     return catalogue.get_catalogue()
 
 
+@app.get("/api/scripts")
+def scripts(query: str = Query(default="", max_length=100)):
+    return scripts_catalogue.search(recipes.available_recipe_root(), query)
+
+
 @app.post("/api/profile/create")
 def create_profile(body: ProfileCreate):
     try:
@@ -369,6 +374,84 @@ def preview(body: RunInput):
         script = remote.script_for(body.settings, path + "/recipe.yml", path)
         return {"script": script, "summary": summary}
     except ValueError as exc:
+        raise HTTPException(400, str(exc)) from exc
+
+
+@app.post("/api/remote/preflight")
+def preflight(body: RunInput):
+    """Bounded checks without uploading files or submitting a PBS job."""
+    try:
+        summary = recipes.summarize(body.yaml)
+        remote.validate_resources(body.settings)
+        checks = [{"level": "error", "label": "Recipe structure", "detail": message}
+                  for message in summary["messages"]]
+        found = remote.probe(body.settings.host, body.settings.esmvaltool_command,
+                             body.settings.setup_command)
+        checks.append({"level": "ok" if found.get("pbs") == "yes" else "error", "label": "PBS",
+                       "detail": "qsub found" if found.get("pbs") == "yes" else "qsub unavailable"})
+        executable = found.get("esmvaltool_path")
+        checks.append({"level": "ok" if executable else "error", "label": "ESMValTool",
+                       "detail": executable or "Executable not found"})
+        selected_config = body.settings.config_file or body.settings.config_dir or found.get("config_file", "")
+        config = None
+        try:
+            files = configuration.load_remote_files(body.settings.host, selected_config)
+            config = configuration.inspect_files(files)
+            checks.append({"level": "ok", "label": "Configuration",
+                           "detail": f"Read {len(files)} YAML file(s) from Gadi"})
+        except ValueError as exc:
+            checks.append({"level": "error" if body.settings.config_file or body.settings.config_dir else "warning",
+                           "label": "Configuration", "detail": str(exc)})
+        projects = sorted({str(item["settings"].get("project")) for item in summary["graph"]["datasets"]
+                           if item["settings"].get("project")}
+                          | {str(item["detail"].get("project")) for item in summary["graph"]["variables"]
+                             if item["detail"].get("project")})
+        configured = config["effective"].get("projects") if config else None
+        legacy_roots = config["effective"].get("rootpath") if config else None
+        for project in projects:
+            project_config = configured.get(project) if isinstance(configured, dict) else None
+            if isinstance(project_config, dict) and project_config.get("data"):
+                checks.append({"level": "ok", "label": f"{project} data",
+                               "detail": "Project data source configured; matching input files still need ESMValCore validation"})
+            elif isinstance(legacy_roots, dict) and legacy_roots.get(project):
+                checks.append({"level": "ok", "label": f"{project} data",
+                               "detail": "Legacy rootpath configured; matching input files still need ESMValCore validation"})
+            else:
+                detail = "No project-specific data root in the selected configuration"
+                if isinstance(legacy_roots, dict) and legacy_roots.get("default"):
+                    detail += "; a default root may apply"
+                checks.append({"level": "warning", "label": f"{project} data", "detail": detail})
+        script_paths = sorted({item["path"] for diagnostic in summary["graph"]["diagnostics"]
+                               for item in diagnostic["scripts"] if item["path"]})
+        if executable:
+            try:
+                inspected = remote.inspect_scripts(body.settings.host, executable, script_paths)
+                versions = inspected.get("versions") or {}
+                checks.append({"level": "ok" if versions.get("ESMValCore") else "warning",
+                               "label": "Gadi environment",
+                               "detail": f"ESMValTool {versions.get('ESMValTool') or 'unknown'} · ESMValCore {versions.get('ESMValCore') or 'unknown'}"})
+                for path, exists in inspected["scripts"].items():
+                    checks.append({"level": "ok" if exists else "warning", "label": "Diagnostic script",
+                                   "detail": f"{path}: {'found' if exists else 'not found in installed ESMValTool'}"})
+                if len(script_paths) > 100:
+                    checks.append({"level": "warning", "label": "Diagnostic scripts",
+                                   "detail": f"Only the first 100 of {len(script_paths)} paths were checked"})
+                needed = sorted({step["name"] for profile in summary["graph"]["profiles"] for step in profile["steps"]})
+                available = inspected.get("preprocessor_steps")
+                if needed and available is not None:
+                    missing = sorted(set(needed) - set(available))
+                    checks.append({"level": "error" if missing else "ok", "label": "Preprocessor steps",
+                                   "detail": "Unsupported on Gadi: " + ", ".join(missing) if missing else f"All {len(needed)} named steps exposed by Gadi ESMValCore"})
+                elif needed:
+                    checks.append({"level": "warning", "label": "Preprocessor steps",
+                                   "detail": "Could not compare named steps with Gadi ESMValCore"})
+            except ValueError as exc:
+                checks.append({"level": "warning", "label": "Gadi installation", "detail": str(exc)})
+        checks.append({"level": "warning", "label": "Input files",
+                       "detail": "Exact dataset facets and files have not been checked on Gadi"})
+        return {"ready": not any(item["level"] == "error" for item in checks),
+                "checks": checks, "summary": summary}
+    except (ValueError, RuntimeError, TimeoutError) as exc:
         raise HTTPException(400, str(exc)) from exc
 
 

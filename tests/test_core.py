@@ -12,9 +12,38 @@ from esmval_gui.recipes import (add_script, available_recipe_root, build_recipe,
                                 read_node, library_recipe_info,
                                 set_profile_order, set_variable_profile, summarize)
 from esmval_gui.remote import RemoteSettings, cancel, script_for, submit
+from esmval_gui.scripts_catalogue import search as search_scripts
 
 
 class RecipeTests(unittest.TestCase):
+    def test_structure_reports_missing_script_paths_and_exact_ancestors(self):
+        source = """documentation: {title: Demo}
+diagnostics:
+  first:
+    variables: {tas: {}}
+    scripts: {plot: {script: ''}}
+  second:
+    ancestors: [first/missing]
+    variables: {}
+    scripts: {}
+"""
+        messages = summarize(source)["messages"]
+        self.assertTrue(any("no script path" in message for message in messages))
+        self.assertTrue(any("missing ancestor" in message for message in messages))
+        self.assertEqual(summarize(source.replace("first/missing", "first/plot").replace("script: ''", "script: examples/diagnostic.py"))["messages"], [])
+
+    def test_script_catalogue_contains_shipped_script(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory) / "esmvaltool" / "recipes"
+            script = root.parent / "diag_scripts" / "examples" / "diagnostic.py"
+            root.mkdir(parents=True)
+            script.parent.mkdir(parents=True)
+            script.write_text('"""A short example diagnostic."""\n')
+            (root / "recipe_example.yml").write_text("diagnostics: {example: {scripts: {plot: {script: examples/diagnostic.py}}}}\n")
+            result = search_scripts(root, "short example")
+            self.assertEqual(result["total"], 1)
+            self.assertEqual(result["scripts"][0]["path"], "examples/diagnostic.py")
+
     def test_esgf_results_fill_recipe_facets(self):
         payload = {"response": {"numFound": 2, "docs": [
             {"source_id": "ACCESS-ESM1-5", "experiment_id": "historical", "member_id": "r1i1p1f1",
@@ -358,6 +387,20 @@ diagnostics:
 
 
 class RemoteTests(unittest.TestCase):
+    @patch("esmval_gui.app.remote.inspect_scripts", return_value={"root": "/env/diag_scripts", "scripts": {"examples/diagnostic.py": True}})
+    @patch("esmval_gui.app.configuration.load_remote_files", return_value=[{"name": "config.yml", "content": "projects: {CMIP6: {data: {default: /g/data/oi10}}}"}])
+    @patch("esmval_gui.app.remote.probe", return_value={"pbs": "yes", "esmvaltool_path": "/env/bin/esmvaltool"})
+    def test_preflight_is_read_only_and_reports_unchecked_data(self, _probe, _files, _scripts):
+        from esmval_gui.app import RunInput, preflight
+        recipe = """documentation: {title: Demo}
+datasets: [{dataset: ModelA, project: CMIP6}]
+diagnostics: {maps: {variables: {tas: {}}, scripts: {plot: {script: examples/diagnostic.py}}}}
+"""
+        result = preflight(RunInput(yaml=recipe, settings=self.settings()))
+        self.assertTrue(result["ready"])
+        self.assertTrue(any(item["label"] == "Input files" and item["level"] == "warning" for item in result["checks"]))
+        self.assertTrue(any(item["label"] == "Diagnostic script" and item["level"] == "ok" for item in result["checks"]))
+
     def settings(self):
         return RemoteSettings(project="ab12", work_dir="/scratch/ab12/exampleuser/esmval-gui-jobs", storage="scratch/ab12+gdata/cd34")
 

@@ -173,6 +173,9 @@ def summarize(source: str, metadata_root: Path | None = None) -> dict:
             continue
         variables = diagnostic.get("variables") or {}
         scripts = diagnostic.get("scripts") or {}
+        if not isinstance(scripts, dict):
+            messages.append(f"Diagnostic '{name}' scripts must be a mapping")
+            scripts = {}
         diagnostic_datasets = diagnostic.get("additional_datasets") or []
         if not isinstance(diagnostic_datasets, list):
             messages.append(f"Diagnostic '{name}' additional_datasets must be a list")
@@ -211,14 +214,28 @@ def summarize(source: str, metadata_root: Path | None = None) -> dict:
         else:
             messages.append(f"Diagnostic '{name}' variables must be a mapping")
         script_items = []
-        if isinstance(scripts, dict):
-            for script_name, script in scripts.items():
-                path = script.get("script") if isinstance(script, dict) else ""
-                script_items.append({"name": str(script_name), "path": str(path or "")})
+        for script_name, script in scripts.items():
+            path = script.get("script") if isinstance(script, dict) else ""
+            if not isinstance(path, str) or not path.strip():
+                messages.append(f"{name}/{script_name} has no script path")
+            script_items.append({"name": str(script_name), "path": str(path or "")})
+        ancestors = diagnostic.get("ancestors", [])
+        if not isinstance(ancestors, list):
+            messages.append(f"Diagnostic '{name}' ancestors must be a list")
+            ancestors = []
+        # Exact diagnostic/script references can be checked here. ESMValTool also
+        # accepts variable names and wildcard patterns, which need runtime validation.
+        for ancestor in ancestors:
+            if isinstance(ancestor, str) and "/" in ancestor and not any(c in ancestor for c in "*?[]"):
+                ancestor_diagnostic, ancestor_script = ancestor.split("/", 1)
+                candidate = diagnostics.get(ancestor_diagnostic)
+                candidate_scripts = candidate.get("scripts") if isinstance(candidate, dict) else None
+                if not isinstance(candidate_scripts, dict) or ancestor_script not in candidate_scripts:
+                    messages.append(f"{name} refers to missing ancestor '{ancestor}'")
         graph["diagnostics"].append({
             "id": str(name), "label": str(name),
             "variables": variable_items, "scripts": script_items,
-            "ancestors": [str(x) for x in diagnostic.get("ancestors", [])] if isinstance(diagnostic.get("ancestors", []), list) else [],
+            "ancestors": [str(x) for x in ancestors],
         })
     documentation = recipe.get("documentation") or {}
     documentation = documentation if isinstance(documentation, dict) else {}

@@ -5,8 +5,23 @@ const variableGroup = (item) => item.name !== variableName(item) ? `Group ${item
 const variableListName = (item) => variableGroup(item) ? `${variableName(item)} (${item.name})` : variableName(item);
 const realmNames = { atmos: 'Atmosphere', atmosChem: 'Atmospheric chemistry', land: 'Land', ocean: 'Ocean', ocnBgchem: 'Ocean biogeochemistry', seaIce: 'Sea ice' };
 const realmLabel = (realm) => realmNames[realm] || realm;
-const state = { yaml: '', summary: null, name: '', libraryInfo: null, dirty: false, selected: null, jobs: [], selectedJob: null, parseTimer: null, catalogue: null, builderProfile: '', builderBrick: '', builderEditing: false, isNewRecipe: false, recipePreviewTimer: null, recipePreviewVersion: 0, configFiles: [], configSummary: null, configVersion: 0 };
+const state = { yaml: '', summary: null, name: '', libraryInfo: null, dirty: false, selected: null, jobs: [], selectedJob: null, parseTimer: null, draftTimer: null, figureUrl: null, figureSource: null, figureRequest: 0, catalogue: null, builderProfile: '', builderBrick: '', builderEditing: false, isNewRecipe: false, recipePreviewTimer: null, recipePreviewVersion: 0, configFiles: [], configSummary: null, configVersion: 0 };
 let accessToken = sessionStorage.getItem('esmval-gui-access-token') || '';
+const draftKey = 'esmval-gui-recipe-draft';
+function persistDraft() {
+  clearTimeout(state.draftTimer);
+  if (!state.dirty || !state.yaml) { sessionStorage.removeItem(draftKey); return; }
+  state.draftTimer = setTimeout(() => {
+    try { sessionStorage.setItem(draftKey, JSON.stringify({yaml: state.yaml, name: state.name, savedAt: Date.now()})); }
+    catch (_) { toast('Draft recovery is unavailable in this browser session.', true); }
+  }, 500);
+}
+function canReplaceRecipe() {
+  return !state.dirty || window.confirm('This recipe has edits that have not been downloaded. Replace it and discard those edits?');
+}
+window.addEventListener('beforeunload', (event) => {
+  if (state.dirty) { event.preventDefault(); event.returnValue = ''; }
+});
 
 function showAuth(message = '') {
   accessToken = '';
@@ -76,6 +91,31 @@ function attachEsgfSearch(form, fields, onApplied = () => {}) {
   ensemble.addEventListener('input', queueSearch);
   query.addEventListener('keydown', (event) => { if (event.key === 'Enter') { event.preventDefault(); clearTimeout(timer); search(); } });
   project.addEventListener('change', () => { if (query.value.trim().length >= 2) search(); });
+}
+function attachScriptPicker(container, pathInput) {
+  const picker = document.createElement('details');
+  picker.className = 'script-picker';
+  picker.innerHTML = '<summary>Browse recipe diagnostic scripts</summary><input type="search" aria-label="Search diagnostic scripts" placeholder="Search by script or purpose"><div class="script-results"></div>';
+  container.append(picker);
+  const input = picker.querySelector('input');
+  const results = picker.querySelector('.script-results');
+  let timer; let sequence = 0;
+  async function search() {
+    const current = ++sequence;
+    results.textContent = 'Searching scripts…';
+    try {
+      const found = await api('/scripts?' + new URLSearchParams({query: input.value.trim()}));
+      if (!picker.isConnected || current !== sequence) return;
+      results.innerHTML = found.scripts.map((item) => `<button type="button" class="script-result" data-path="${escapeHtml(item.path)}"><strong>${escapeHtml(item.path)}</strong><small>${escapeHtml(item.summary || `Used in ${item.used_by} recipe definition${item.used_by === 1 ? '' : 's'}.`)}</small></button>`).join('') || '<p class="hint">No matching local scripts. You can enter a path manually.</p>';
+      if (found.total > found.scripts.length) results.insertAdjacentHTML('beforeend', `<p class="hint">Showing ${found.scripts.length} of ${found.total}; refine the search.</p>`);
+      results.querySelectorAll('[data-path]').forEach((button) => button.addEventListener('click', () => {
+        pathInput.value = button.dataset.path; pathInput.dispatchEvent(new Event('input', {bubbles: true})); picker.open = false;
+      }));
+    } catch (error) { if (current === sequence) results.textContent = error.message; }
+  }
+  picker.addEventListener('toggle', () => { if (picker.open) search(); });
+  input.addEventListener('input', () => { clearTimeout(timer); timer = setTimeout(search, 250); });
+  input.addEventListener('keydown', (event) => { if (event.key === 'Enter') { event.preventDefault(); clearTimeout(timer); search(); } });
 }
 function toast(message, error = false) {
   const node = $('toast'); node.textContent = message; node.classList.toggle('error', error); node.classList.add('show');
@@ -172,8 +212,10 @@ function updateYamlFeedback(summary) {
   setYamlFeedback(messages.length ? messages.join('\n') : '', messages.length ? 'issue' : '');
 }
 function setRecipe(yaml, name, dirty = false, libraryInfo = null, isNewRecipe = false) {
+  state.libraryRequest = (state.libraryRequest || 0) + 1;
   state.yaml = yaml; state.name = name; state.libraryInfo = libraryInfo; state.dirty = dirty; state.selected = null; state.builderProfile = ''; state.builderBrick = ''; state.isNewRecipe = isNewRecipe;
   $('yamlEditor').value = yaml; $('documentName').textContent = name; $('yamlFileName').textContent = name.split('/').pop() || 'recipe.yml'; $('dirtyMark').hidden = !dirty;
+  persistDraft();
   setYamlFeedback(); $('recipeGuide').hidden = true;
   parseCurrent(); setTab('pipeline');
 }
@@ -195,7 +237,7 @@ async function parseCurrent() {
     const summary = await post('/parse', { yaml: source });
     if (state.yaml !== source) return;
     state.summary = summary; renderSummary(); updateYamlFeedback(summary);
-    $('validationStatus').textContent = summary.messages.length ? `${summary.messages.length} issue${summary.messages.length === 1 ? '' : 's'}` : 'Structure valid';
+    $('validationStatus').textContent = summary.messages.length ? `${summary.messages.length} structure issue${summary.messages.length === 1 ? '' : 's'}` : 'YAML structure checked';
     $('validationStatus').classList.toggle('invalid', !!summary.messages.length);
   } catch (err) {
     if (state.yaml !== source) return;
@@ -244,7 +286,7 @@ function renderRecipeGuide() {
   const unassigned = state.summary.graph.variables.find((variable) => variable.profile === 'default');
   const profileAction = hasProfile && unassigned ? '<button type="button" data-guide="assign">Assign preprocessor →</button>'
     : `<button type="button" data-guide="profile">${hasProfile ? 'Edit preprocessor →' : '+ Preprocessor'}</button>`;
-  guide.innerHTML = `<div class="guide-head"><div><div class="eyebrow">RECIPE BUILDER</div><h2>Continue building</h2><p>Your first dataset, variable and diagnostic are ready. Add processing and any missing inputs, then save the YAML.</p></div><span class="guide-progress">${hasScript ? 'Script added' : 'Script needed to run'}</span></div><div class="guide-actions"><button type="button" data-guide="dataset">+ Dataset</button>${profileAction}<button type="button" data-guide="variable">+ Variable</button><button type="button" data-guide="diagnostic">+ Diagnostic</button>${hasScript ? '' : '<button type="button" data-guide="script">Add script →</button>'}</div>`;
+  guide.innerHTML = `<div class="guide-head"><div><div class="eyebrow">RECIPE BUILDER</div><h2>Continue building</h2><p>Your first dataset, variable and diagnostic are ready. Add processing and any missing inputs, then download the YAML.</p></div><span class="guide-progress">${hasScript ? 'Script added' : 'Preprocessing only'}</span></div><div class="guide-actions"><button type="button" data-guide="dataset">+ Dataset</button>${profileAction}<button type="button" data-guide="variable">+ Variable</button><button type="button" data-guide="diagnostic">+ Diagnostic</button>${hasScript ? '' : '<button type="button" data-guide="script">Add script →</button>'}</div>`;
   guide.querySelectorAll('[data-guide]').forEach((button) => button.addEventListener('click', () => {
     const action = button.dataset.guide;
     if (action === 'profile') { setTab('builder'); if (!hasProfile) $('newProfile').click(); else $('builderProfile').focus(); }
@@ -279,10 +321,34 @@ function renderRecipeStory() {
   const normalize = (text) => String(text || '').replace(/\s+/g, ' ').trim().toLowerCase();
   const overview = normalize(info.overview) && !normalize(summary.description).includes(normalize(info.overview))
     ? `<div class="story-overview"><strong>From the documentation</strong><p>${escapeHtml(info.overview)}</p></div>` : '';
-  const figure = info.figure ? `<figure class="story-figure">${info.docs_url ? `<a href="${escapeHtml(info.docs_url)}" target="_blank" rel="noopener noreferrer" title="View figure in documentation">` : ''}<img src="${escapeHtml(info.figure.url)}" alt="${escapeHtml(info.figure.caption || 'Example figure from ESMValTool documentation')}" loading="lazy">${info.docs_url ? '</a>' : ''}<figcaption><span class="figure-source">${info.figure.scope === 'documentation' ? 'SHARED DOCUMENTATION EXAMPLE' : 'DOCUMENTED EXAMPLE OUTPUT'}</span>${escapeHtml(info.figure.caption || 'Example figure from ESMValTool documentation')}</figcaption></figure>` : '';
+  const figure = info.figure ? `<figure class="story-figure">${info.docs_url ? `<a href="${escapeHtml(info.docs_url)}" target="_blank" rel="noopener noreferrer" title="View figure in documentation">` : ''}<img alt="${escapeHtml(info.figure.caption || 'Example figure from ESMValTool documentation')}" loading="lazy">${info.docs_url ? '</a>' : ''}<figcaption><span class="figure-source">${info.figure.scope === 'documentation' ? 'SHARED DOCUMENTATION EXAMPLE' : 'DOCUMENTED EXAMPLE OUTPUT'}</span>${escapeHtml(info.figure.caption || 'Example figure from ESMValTool documentation')}</figcaption></figure>` : '';
   const story = $('recipeStory');
   story.hidden = false;
   story.innerHTML = `<div class="story-main"><div class="story-eyebrow">ABOUT THIS RECIPE</div><p class="story-description">${escapeHtml(summary.description || 'No description provided in this recipe.')}</p>${overview}${meta ? `<dl class="story-meta">${meta}</dl>` : ''}${refs ? `<details class="story-references" ${references.length <= 3 ? 'open' : ''}><summary>References <span>${references.length}</span></summary><ul>${refs}</ul></details>` : ''}${links ? `<div class="story-links">${links}</div>` : ''}</div>${figure}`;
+  const source = info.figure?.url || null;
+  if (source !== state.figureSource) {
+    state.figureRequest++;
+    if (state.figureUrl) URL.revokeObjectURL(state.figureUrl);
+    state.figureUrl = null; state.figureSource = source;
+  }
+  if (source) {
+    const image = story.querySelector('img');
+    if (state.figureUrl) image.src = state.figureUrl;
+    else loadRecipeFigure(source, image, ++state.figureRequest);
+  }
+}
+async function loadRecipeFigure(path, image, request) {
+  if (!path.startsWith('/api/docs-figure/')) return;
+  try {
+    const response = await fetch(path, {headers: {'X-ESMVal-Token': accessToken}});
+    if (response.status === 401) { showAuth('The token is no longer valid. Enter the token from the server terminal.'); return; }
+    if (!response.ok) throw new Error('Figure unavailable');
+    const url = URL.createObjectURL(await response.blob());
+    if (request !== state.figureRequest || state.figureSource !== path) { URL.revokeObjectURL(url); return; }
+    state.figureUrl = url;
+    const current = $('recipeStory').querySelector('img');
+    if (current) current.src = url;
+  } catch (_) { if (image.isConnected) image.closest('figure')?.remove(); }
 }
 function pipelineProfiles() {
   const profiles = state.summary?.graph.profiles || [];
@@ -501,6 +567,7 @@ function mountScriptCreator(item) {
   let suggested = 'plot'; let number = 2;
   while (existing.has(suggested)) suggested = `plot_${number++}`;
   $('nodeEditor').insertAdjacentHTML('afterend', `<form id="scriptCreate" class="inspector-section script-create"><div class="eyebrow">ADD SCRIPT</div><label class="field">Name<input id="scriptName" required value="${suggested}" placeholder="e.g. plot"></label><label class="field">Script path<input id="scriptPath" required placeholder="e.g. examples/diagnostic.py"></label><button class="button subtle small-button" type="submit">Add script</button><p id="scriptCreateStatus" class="hint" role="status"></p></form>`);
+  attachScriptPicker($('scriptCreate'), $('scriptPath'));
   $('scriptCreate').addEventListener('submit', async (event) => {
     event.preventDefault();
     const form = event.currentTarget;
@@ -548,8 +615,9 @@ function selectItem(kind, id) {
 }
 function applyEdit(result) {
   state.yaml = result.yaml; state.summary = result.summary; state.dirty = true;
+  persistDraft();
   $('yamlEditor').value = result.yaml; $('dirtyMark').hidden = false; renderSummary(); updateYamlFeedback(result.summary);
-  $('validationStatus').textContent = result.summary.messages.length ? `${result.summary.messages.length} issue${result.summary.messages.length === 1 ? '' : 's'}` : 'Structure valid';
+  $('validationStatus').textContent = result.summary.messages.length ? `${result.summary.messages.length} structure issue${result.summary.messages.length === 1 ? '' : 's'}` : 'YAML structure checked';
   $('validationStatus').classList.toggle('invalid', !!result.summary.messages.length);
 }
 function renderBuilder() {
@@ -648,7 +716,15 @@ function renderLibrary() {
   $('recipeList').querySelectorAll('.recipe-entry').forEach((button) => button.addEventListener('click', () => openLibraryRecipe(button.dataset.path)));
 }
 async function openLibraryRecipe(path) {
-  try { const result = await api('/recipes/' + path.split('/').map(encodeURIComponent).join('/')); setRecipe(result.yaml, path, false, result.library_info); renderLibrary(); }
+  if (state.name === path && state.yaml) return;
+  if (!canReplaceRecipe()) return;
+  const current = state.yaml;
+  const request = (state.libraryRequest = (state.libraryRequest || 0) + 1);
+  try {
+    const result = await api('/recipes/' + path.split('/').map(encodeURIComponent).join('/'));
+    if (request !== state.libraryRequest || (state.yaml !== current && !canReplaceRecipe())) return;
+    setRecipe(result.yaml, path, false, result.library_info); renderLibrary();
+  }
   catch (err) { toast(err.message, true); }
 }
 function settings() {
@@ -683,14 +759,35 @@ async function previewScript() {
   try { const result = await post('/remote/preview', { yaml: state.yaml, settings: settings() }); $('pbsScript').textContent = result.script; document.querySelector('.script-preview').open = true; return true; }
   catch (err) { toast(err.message, true); return false; }
 }
+function reviewSignature() { return JSON.stringify({yaml: state.yaml, settings: settings()}); }
+function clearRunReview() {
+  state.reviewSignature = null;
+  $('runReview').hidden = true;
+  $('runReview').replaceChildren();
+  $('submitButton').textContent = 'Review & check ↗';
+}
 async function submitJob() {
-  if (!await previewScript()) return;
-  $('submitButton').disabled = true; $('submitButton').textContent = 'Submitting…';
+  const signature = reviewSignature();
+  const button = $('submitButton');
+  if (state.reviewSignature !== signature) {
+    clearRunReview(); button.disabled = true; button.textContent = 'Checking Gadi…';
+    try {
+      if (!await previewScript()) return;
+      const result = await post('/remote/preflight', {yaml: state.yaml, settings: settings()});
+      if (reviewSignature() !== signature) return;
+      $('runReview').hidden = false;
+      $('runReview').innerHTML = `<strong>${escapeHtml(result.summary.title)} · ${result.ready ? 'Ready for your review' : 'Fix blocking checks'}</strong><p>${escapeHtml(`${$('project').value} · ${$('queue').value} · ${$('walltime').value} · ${$('ncpus').value} CPU · ${$('memory_gb').value} GB`)}</p>${result.checks.map((check) => `<div class="review-check ${escapeHtml(check.level)}"><span>${check.level === 'ok' ? '✓' : check.level === 'error' ? '×' : '!'}</span><b>${escapeHtml(check.label)}</b><span>${escapeHtml(check.detail)}</span></div>`).join('')}`;
+      if (result.ready) state.reviewSignature = signature;
+    } catch (err) { toast(err.message, true); }
+    finally { button.disabled = false; button.textContent = state.reviewSignature === signature ? 'Queue job ↗' : 'Review & check ↗'; }
+    return;
+  }
+  button.disabled = true; button.textContent = 'Submitting…';
   try {
-    const result = await post('/remote/submit', { yaml: state.yaml, settings: settings() });
-    $('runModal').hidden = true; toast('Submitted PBS job ' + result.job_id); setTab('runs');
+    const result = await post('/remote/submit', {yaml: state.yaml, settings: settings()});
+    $('runModal').hidden = true; clearRunReview(); toast('Submitted PBS job ' + result.job_id); setTab('runs');
   } catch (err) { toast(err.message, true); }
-  finally { $('submitButton').disabled = false; $('submitButton').textContent = 'Submit job ↗'; }
+  finally { button.disabled = false; if (state.reviewSignature === signature) button.textContent = 'Queue job ↗'; }
 }
 async function refreshJobs() {
   try {
@@ -712,6 +809,7 @@ async function selectJob(id) {
 }
 document.querySelectorAll('.tab').forEach((button) => button.addEventListener('click', () => setTab(button.dataset.tab)));
 const newRecipeForm = $('newRecipeForm');
+attachScriptPicker(newRecipeForm.querySelector('.recipe-form-section:last-of-type'), newRecipeForm.elements.script_path);
 newRecipeForm.querySelector('.esgf-wizard-search').innerHTML = esgfSearchMarkup();
 attachEsgfSearch(newRecipeForm, {dataset: '[name="dataset"]', project: '[name="project"]', exp: '[name="exp"]', ensemble: '[name="ensemble"]', grid: '[name="grid"]'}, (item) => {
   if (item.mip && item.project !== 'CMIP7') newRecipeForm.elements.mip.value = item.mip;
@@ -760,7 +858,7 @@ newRecipeForm.addEventListener('submit', async (event) => {
   const button = $('createRecipe'); button.disabled = true;
   try {
     const result = await post('/recipe/new', newRecipeValues());
-    if (state.dirty && !window.confirm('The current recipe has unsaved edits. Save its YAML before replacing it, or choose OK to replace it now.')) return;
+    if (!canReplaceRecipe()) return;
     closeNewRecipeBuilder();
     setRecipe(result.yaml, result.name, true, null, true);
     newRecipeForm.reset(); delete newRecipeForm.elements.filename.dataset.manual;
@@ -797,7 +895,7 @@ $('customOrder').addEventListener('change', async (event) => {
 });
 $('recipeSearch').addEventListener('input', renderLibrary);
 $('realmFilter').addEventListener('change', renderLibrary);
-$('yamlEditor').addEventListener('input', () => { state.yaml = $('yamlEditor').value; state.dirty = true; $('dirtyMark').hidden = false; clearTimeout(state.parseTimer); state.parseTimer = setTimeout(parseCurrent, 400); });
+$('yamlEditor').addEventListener('input', () => { state.yaml = $('yamlEditor').value; state.dirty = true; $('dirtyMark').hidden = false; persistDraft(); clearTimeout(state.parseTimer); state.parseTimer = setTimeout(parseCurrent, 400); });
 $('yamlEditor').addEventListener('keydown', (event) => {
   if (event.key === 'Tab' && !event.shiftKey) {
     event.preventDefault();
@@ -807,9 +905,9 @@ $('yamlEditor').addEventListener('keydown', (event) => {
     event.preventDefault(); $('saveFile').click();
   }
 });
-$('validateButton').addEventListener('click', async () => { await parseCurrent(); toast(!state.summary ? 'Fix the YAML before checking structure.' : state.summary.messages.length ? 'Recipe structure has issues.' : 'YAML and recipe structure look valid.', !state.summary || !!state.summary.messages.length); });
+$('validateButton').addEventListener('click', async () => { await parseCurrent(); toast(!state.summary ? 'Fix the YAML before checking structure.' : state.summary.messages.length ? 'Recipe structure has issues.' : 'YAML structure checked. Gadi data and runtime compatibility still need review.', !state.summary || !!state.summary.messages.length); });
 $('openFile').addEventListener('click', () => $('fileInput').click());
-$('fileInput').addEventListener('change', async () => { const file = $('fileInput').files[0]; if (file) { setRecipe(await file.text(), file.name); $('fileInput').value = ''; } });
+$('fileInput').addEventListener('change', async () => { const file = $('fileInput').files[0]; $('fileInput').value = ''; if (file && canReplaceRecipe()) setRecipe(await file.text(), file.name); });
 $('configOpenFiles').addEventListener('click', () => $('configFileInput').click());
 $('configOpenFolder').addEventListener('click', () => $('configFolderInput').click());
 for (const id of ['configFileInput', 'configFolderInput']) $(id).addEventListener('change', async (event) => { await addConfigFiles(event.target.files); event.target.value = ''; });
@@ -843,10 +941,12 @@ $('configRemoteForm').addEventListener('submit', async (event) => {
   } catch (error) { $('configStatus').textContent = error.message; }
   finally { button.disabled = false; }
 });
-$('saveFile').addEventListener('click', () => { if (!state.yaml) return toast('Open a recipe first.', true); const blob = new Blob([state.yaml], { type: 'text/yaml' }); const link = document.createElement('a'); link.href = URL.createObjectURL(blob); link.download = state.name.split('/').pop() || 'recipe.yml'; link.click(); setTimeout(() => URL.revokeObjectURL(link.href), 1000); state.dirty = false; $('dirtyMark').hidden = true; });
-$('runButton').addEventListener('click', () => { if (!state.yaml) return toast('Open a recipe first.', true); $('runModal').hidden = false; });
+$('saveFile').addEventListener('click', () => { if (!state.yaml) return toast('Open a recipe first.', true); const blob = new Blob([state.yaml], { type: 'text/yaml' }); const link = document.createElement('a'); link.href = URL.createObjectURL(blob); link.download = state.name.split('/').pop() || 'recipe.yml'; link.click(); setTimeout(() => URL.revokeObjectURL(link.href), 1000); state.dirty = false; $('dirtyMark').hidden = true; persistDraft(); });
+$('runButton').addEventListener('click', () => { if (!state.yaml) return toast('Open a recipe first.', true); clearRunReview(); $('runModal').hidden = false; });
 $('closeModal').addEventListener('click', () => $('runModal').hidden = true);
 $('runModal').addEventListener('click', (event) => { if (event.target === $('runModal')) $('runModal').hidden = true; });
+$('runModal').addEventListener('input', (event) => { if (event.target.matches('input,select,textarea')) clearRunReview(); });
+$('runModal').addEventListener('change', (event) => { if (event.target.matches('input,select,textarea')) clearRunReview(); });
 $('probeButton').addEventListener('click', probeRemote); $('previewButton').addEventListener('click', previewScript); $('submitButton').addEventListener('click', submitJob);
 $('refreshJobs').addEventListener('click', refreshJobs); $('refreshLog').addEventListener('click', () => { if (state.selectedJob) selectJob(state.selectedJob); });
 $('cancelJob').addEventListener('click', async () => {
@@ -865,6 +965,11 @@ new ResizeObserver(scheduleConnections).observe($('pipeline'));
 function startStudio() {
   $('authGate').hidden = true;
   document.querySelector('.shell').inert = false;
+  try {
+    const draft = JSON.parse(sessionStorage.getItem(draftKey) || 'null');
+    if (draft?.yaml && window.confirm(`Recover the edited draft of ${draft.name || 'recipe.yml'} from this tab?`)) setRecipe(draft.yaml, draft.name || 'recipe.yml', true, null, true);
+    else sessionStorage.removeItem(draftKey);
+  } catch (_) { sessionStorage.removeItem(draftKey); }
   loadCatalogue(); loadLibrary();
 }
 $('authForm').addEventListener('submit', async (event) => {

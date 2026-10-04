@@ -214,6 +214,45 @@ def probe(host: str, command: str = "esmvaltool", setup: str = "") -> dict:
     return values
 
 
+_SCRIPT_CHECK = r'''
+import ast, importlib.metadata, importlib.util, json, pathlib, sys
+paths = json.loads(sys.argv[1])
+spec = importlib.util.find_spec("esmvaltool")
+root = pathlib.Path(next(iter(spec.submodule_search_locations))) / "diag_scripts" if spec and spec.submodule_search_locations else None
+versions = {}
+for package in ("ESMValTool", "ESMValCore"):
+    try: versions[package] = importlib.metadata.version(package)
+    except importlib.metadata.PackageNotFoundError: versions[package] = None
+steps = None
+try:
+    core = importlib.util.find_spec("esmvalcore")
+    source = pathlib.Path(next(iter(core.submodule_search_locations))) / "preprocessor" / "__init__.py"
+    for node in ast.parse(source.read_text(encoding="utf-8")).body:
+        if isinstance(node, ast.Assign) and any(isinstance(target, ast.Name) and target.id == "__all__" for target in node.targets):
+            steps = ast.literal_eval(node.value)
+            break
+except Exception:
+    pass
+print(json.dumps({"root": str(root) if root else None,
+                  "scripts": {name: bool(root and (root / name).is_file()) for name in paths},
+                  "versions": versions, "preprocessor_steps": steps}))
+'''.strip()
+
+
+def inspect_scripts(host: str, executable: str, paths: list[str]) -> dict:
+    """Inspect installed scripts and preprocessor API without starting a job."""
+    if not executable.startswith("/") or not COMMAND_RE.fullmatch(executable):
+        raise ValueError("An absolute ESMValTool executable is needed to check installed scripts")
+    if any(path.startswith("/") or ".." in path.split("/") for path in paths):
+        raise ValueError("Installed script checks require relative paths")
+    python = str(Path(executable).parent / "python")
+    command = f"{shlex.quote(python)} -c {shlex.quote(_SCRIPT_CHECK)} {shlex.quote(json.dumps(paths[:100]))}"
+    try:
+        return json.loads(ssh(host, command, timeout=45))
+    except (json.JSONDecodeError, RuntimeError, subprocess.TimeoutExpired) as exc:
+        raise ValueError(f"Could not inspect diagnostic scripts: {exc}") from exc
+
+
 def submit(settings: RemoteSettings, recipe: str, state_dir: Path, title: str = "recipe.yml") -> dict:
     validate_resources(settings)
     run_id = uuid.uuid4().hex[:12]

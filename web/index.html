@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>ESMVal Studio</title>
-  <link rel="stylesheet" href="/style.css?v=auth-gate-1">
+  <link rel="stylesheet" href="/style.css?v=review-2">
 </head>
 <body>
   <div class="shell">
@@ -14,7 +14,7 @@
         <span id="connectionBadge" class="badge neutral">Offline editor</span>
         <button id="newRecipeButton" class="button subtle" type="button">+ New recipe</button>
         <button id="openFile" class="button ghost">Open YAML</button>
-        <button id="saveFile" class="button ghost">Save YAML</button>
+        <button id="saveFile" class="button ghost">Download YAML</button>
         <button id="runButton" class="button primary">Submit to Gadi <span>↗</span></button>
       </div>
     </header>
@@ -107,7 +107,7 @@
             <label>MIP table<input name="mip" required value="Amon" placeholder="e.g. Amon"></label>
             <label>Script path <span class="optional">optional</span><input name="script_path" placeholder="e.g. examples/diagnostic.py"></label>
             <label>Script name <span class="optional">optional</span><input name="script_name" placeholder="plot"></label>
-          </div><p class="recipe-form-hint">You can add preprocessor steps and further diagnostics after creating the recipe. Add a script before submitting a runnable recipe.</p></section>
+          </div><p class="recipe-form-hint">You can add preprocessor steps and further diagnostics after creating the recipe. Add a script for diagnostic output; preprocessing-only recipes can run without one.</p></section>
           <details class="recipe-preview"><summary>Preview recipe YAML</summary><pre id="newRecipePreview">Fill the required fields to preview the recipe.</pre></details>
           <p id="newRecipeStatus" class="recipe-form-status" role="status"></p>
         </div>
@@ -135,12 +135,13 @@
           <label class="wide">ESMValTool config file <input id="config_file" placeholder="Optional legacy config-user.yml path"></label>
         </div>
         <div class="remote-actions"><button id="probeButton" class="button subtle">Check Gadi connection</button><span id="probeResult"></span></div>
+        <div id="runReview" class="run-review" role="status" hidden></div>
         <details class="script-preview"><summary>Review PBS script</summary><pre id="pbsScript">Fill in the settings and select Preview.</pre></details>
       </div>
-      <div class="modal-footer"><button id="previewButton" class="button ghost">Preview script</button><button id="submitButton" class="button primary">Submit job ↗</button></div>
+      <div class="modal-footer"><button id="previewButton" class="button ghost">Preview script</button><button id="submitButton" class="button primary">Review &amp; check ↗</button></div>
     </div>
   </div>
   <input id="fileInput" type="file" accept=".yml,.yaml,text/yaml" hidden>
-  <script src="/app.js?v=auth-gate-1" defer></script>
+  <script src="/app.js?v=review-2" defer></script>
 </body>
 </html>
