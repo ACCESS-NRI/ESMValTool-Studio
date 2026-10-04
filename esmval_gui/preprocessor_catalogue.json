@@ -1,0 +1,1675 @@
+{
+  "source": "Bundled ESMValCore catalogue",
+  "bricks": [
+    {
+      "name": "derive",
+      "category": "Derived variables",
+      "summary": "Derive",
+      "documentation": "Documentation unavailable in this source checkout.",
+      "parameters": [],
+      "order": 9
+    },
+    {
+      "name": "align_metadata",
+      "category": "Other",
+      "summary": "Set cube metadata to entries from a specific target project.",
+      "documentation": "Set cube metadata to entries from a specific target project.\n\nThis is useful to align variable metadata of different projects prior to\nperforming multi-model operations (e.g.,\n:func:`~esmvalcore.preprocessor.multi_model_statistics`). For example,\nstandard names differ for some variables between CMIP5 and CMIP6 which\nwould prevent the calculation of multi-model statistics between CMIP5 and\nCMIP6 data.\n\nParameters\n----------\ncube:\n    Input cube.\ntarget_project:\n    Project from which target metadata is read.\ntarget_mip:\n    MIP table from which target metadata is read.\ntarget_short_name:\n    Variable short name from which target metadata is read.\ntarget_branding_suffix:\n    Branding suffix from which target metadata is read.\nstrict:\n    If ``True``, raise an error if desired metadata cannot be read for\n    variable ``target_short_name`` of MIP table ``target_mip`` and project\n    ``target_project``. If ``False``, no error is raised.\n\nReturns\n-------\niris.cube.Cube\n    Cube with updated metadata.\n\nRaises\n------\nKeyError\n    Invalid ``target_project`` given.\nValueError\n    If ``strict=True``: Variable ``target_short_name`` not available for\n    MIP table ``target_mip`` of project ``target_project``.",
+      "parameters": [
+        {
+          "name": "target_project",
+          "type": "str",
+          "required": true,
+          "default": null,
+          "description": "Project from which target metadata is read."
+        },
+        {
+          "name": "target_mip",
+          "type": "str",
+          "required": true,
+          "default": null,
+          "description": "MIP table from which target metadata is read."
+        },
+        {
+          "name": "target_short_name",
+          "type": "str",
+          "required": true,
+          "default": null,
+          "description": "Variable short name from which target metadata is read."
+        },
+        {
+          "name": "target_branding_suffix",
+          "type": "str | None",
+          "required": false,
+          "default": null,
+          "description": "Branding suffix from which target metadata is read."
+        },
+        {
+          "name": "strict",
+          "type": "bool",
+          "required": false,
+          "default": true,
+          "description": "If 'True', raise an error if desired metadata cannot be read for variable 'target_short_name' of MIP table 'target_mip' and project 'target_project'. If 'False', no error is raised."
+        }
+      ],
+      "order": 10
+    },
+    {
+      "name": "extract_time",
+      "category": "Time",
+      "summary": "Extract a time range from a cube.",
+      "documentation": "Extract a time range from a cube.\n\nGiven a time range passed in as a series of years, months and days, it\nreturns a time-extracted cube with data only within the specified\ntime range.\n\nParameters\n----------\ncube:\n    Input cube.\nstart_year:\n    Start year. If ``None``, the date ranges (`start_month`-`start_day` to\n    `end_month`-`end_day`) are selected in each year. For example,\n    ranges Feb 3 - Apr 6 in each year are selected if\n    `start_year=None`, `start_month=2`, `start_day=3`,\n    `end_year=None`, `end_month=4`, `end_day=6`. If `start_year` is\n    ``None``, `end_year` has to be ``None`` too.\nstart_month:\n    Start month.\nstart_day:\n    Start day.\nend_year:\n    End year. If ``None``, the date ranges (`start_month`-`start_day` to\n    `end_month`-`end_day`) are selected in each year. For example,\n    ranges Feb 3 - Apr 6 in each year are selected if\n    `start_year=None`, `start_month=2`, `start_day=3`,\n    `end_year=None`, `end_month=4`, `end_day=6`. If `end_year` is ``None``,\n    `start_year` has to be ``None`` too.\nend_month:\n    End month.\nend_day:\n    End day.\n\nReturns\n-------\niris.cube.Cube\n    Sliced cube.\n\nRaises\n------\nValueError\n    Time ranges are outside the cube time limits.",
+      "parameters": [
+        {
+          "name": "start_year",
+          "type": "int | None",
+          "required": true,
+          "default": null,
+          "description": "Start year. If 'None', the date ranges (start_month-start_day to end_month-end_day) are selected in each year. For example, ranges Feb 3 - Apr 6 in each year are selected if start_year=None, start_month=2, start_day=3, end_year=None, end_month=4, end_day=6. If start_year is 'None', end_year has to be 'None' too."
+        },
+        {
+          "name": "start_month",
+          "type": "int",
+          "required": true,
+          "default": null,
+          "description": "Start month."
+        },
+        {
+          "name": "start_day",
+          "type": "int",
+          "required": true,
+          "default": null,
+          "description": "Start day."
+        },
+        {
+          "name": "end_year",
+          "type": "int | None",
+          "required": true,
+          "default": null,
+          "description": "End year. If 'None', the date ranges (start_month-start_day to end_month-end_day) are selected in each year. For example, ranges Feb 3 - Apr 6 in each year are selected if start_year=None, start_month=2, start_day=3, end_year=None, end_month=4, end_day=6. If end_year is 'None', start_year has to be 'None' too."
+        },
+        {
+          "name": "end_month",
+          "type": "int",
+          "required": true,
+          "default": null,
+          "description": "End month."
+        },
+        {
+          "name": "end_day",
+          "type": "int",
+          "required": true,
+          "default": null,
+          "description": "End day."
+        }
+      ],
+      "order": 11
+    },
+    {
+      "name": "extract_season",
+      "category": "Time",
+      "summary": "Slice cube to get only the data belonging to a specific season.",
+      "documentation": "Slice cube to get only the data belonging to a specific season.\n\nParameters\n----------\ncube:\n    Original data\nseason:\n    Season to extract. Available: DJF, MAM, JJA, SON\n    and all sequentially correct combinations: e.g. JJAS\n\nReturns\n-------\niris.cube.Cube\n    data cube for specified season.\n\nRaises\n------\nValueError\n    Requested season is not present in the cube.",
+      "parameters": [
+        {
+          "name": "season",
+          "type": "str",
+          "required": true,
+          "default": null,
+          "description": "Season to extract. Available: DJF, MAM, JJA, SON and all sequentially correct combinations: e.g. JJAS"
+        }
+      ],
+      "order": 12
+    },
+    {
+      "name": "extract_month",
+      "category": "Time",
+      "summary": "Slice cube to get only the data belonging to a specific month.",
+      "documentation": "Slice cube to get only the data belonging to a specific month.\n\nParameters\n----------\ncube:\n    Original data\nmonth:\n    Month to extract as a number from 1 to 12.\n\nReturns\n-------\niris.cube.Cube\n    Cube for specified month.\n\nRaises\n------\nValueError\n    Requested month is not present in the cube.",
+      "parameters": [
+        {
+          "name": "month",
+          "type": "int",
+          "required": true,
+          "default": null,
+          "description": "Month to extract as a number from 1 to 12."
+        }
+      ],
+      "order": 13
+    },
+    {
+      "name": "resample_hours",
+      "category": "Time",
+      "summary": "Convert x-hourly data to y-hourly data.",
+      "documentation": "Convert x-hourly data to y-hourly data.\n\nThis is intended to be used with instantaneous data.\n\nExamples\n--------\n- ``resample_hours(cube, interval=6)``: Six-hourly intervals at 0:00, 6:00,\n  12:00, 18:00.\n- ``resample_hours(cube, interval=6, offset=3)``: Six-hourly intervals at\n  3:00, 9:00, 15:00, 21:00.\n- ``resample_hours(cube, interval=12, offset=6)``: Twelve-hourly intervals\n  at 6:00, 18:00.\n\nParameters\n----------\ncube:\n    Input cube.\ninterval:\n    The period (hours) of the desired output data.\noffset:\n    The first hour of the desired output data.\ninterpolate:\n    If `interpolate` is ``None`` (default), convert x-hourly data to\n    y-hourly (y > x) by eliminating extra time steps. If `interpolate` is\n    'nearest' or 'linear', use nearest-neighbor or bilinear interpolation\n    to convert general x-hourly data to general y-hourly data.\n\nReturns\n-------\niris.cube.Cube\n    Cube with the new frequency.\n\nRaises\n------\nValueError:\n    `interval` is not a divisor of 24; invalid `interpolate` given; or\n    input data does not contain any target hour (if `interpolate` is\n    ``None``).",
+      "parameters": [
+        {
+          "name": "interval",
+          "type": "int",
+          "required": true,
+          "default": null,
+          "description": "The period (hours) of the desired output data."
+        },
+        {
+          "name": "offset",
+          "type": "int",
+          "required": false,
+          "default": 0,
+          "description": "The first hour of the desired output data."
+        },
+        {
+          "name": "interpolate",
+          "type": "Literal['nearest', 'linear'] | None",
+          "required": false,
+          "default": null,
+          "description": "If interpolate is 'None' (default), convert x-hourly data to y-hourly (y > x) by eliminating extra time steps. If interpolate is 'nearest' or 'linear', use nearest-neighbor or bilinear interpolation to convert general x-hourly data to general y-hourly data."
+        }
+      ],
+      "order": 14
+    },
+    {
+      "name": "resample_time",
+      "category": "Time",
+      "summary": "Change frequency of data by resampling it.",
+      "documentation": "Change frequency of data by resampling it.\n\nConverts data from one frequency to another by extracting the timesteps\nthat match the provided month, day and/or hour. This is meant to be used\nwith instantaneous values when computing statistics is not desired.\n\nFor example:\n\n- resample_time(cube, hour=6): Daily values taken at 6:00.\n\n- resample_time(cube, day=15, hour=6): Monthly values taken at 15th\n  6:00.\n\n- resample_time(cube, month=6): Yearly values, taking in June\n\n- resample_time(cube, month=6, day=1): Yearly values, taking 1st June\n\nThe condition must yield only one value per interval: the last two samples\nabove will produce yearly data, but the first one is meant to be used to\nsample from monthly output and the second one will work better with daily.\n\nParameters\n----------\ncube:\n    Input cube.\nmonth: optional\n    Month to extract.\nday: optional\n    Day to extract.\nhour: optional\n    Hour to extract.\n\nReturns\n-------\niris.cube.Cube\n    Cube with the new frequency.",
+      "parameters": [
+        {
+          "name": "month",
+          "type": "int | None",
+          "required": false,
+          "default": null,
+          "description": "Month to extract."
+        },
+        {
+          "name": "day",
+          "type": "int | None",
+          "required": false,
+          "default": null,
+          "description": "Day to extract."
+        },
+        {
+          "name": "hour",
+          "type": "int | None",
+          "required": false,
+          "default": null,
+          "description": "Hour to extract."
+        }
+      ],
+      "order": 15
+    },
+    {
+      "name": "extract_levels",
+      "category": "Grid and points",
+      "summary": "Perform vertical interpolation.",
+      "documentation": "Perform vertical interpolation.\n\nParameters\n----------\ncube:\n    The source cube to be vertically interpolated.\nlevels:\n    One or more target levels for the vertical interpolation. Assumed\n    to be in the same S.I. units of the source cube vertical dimension\n    coordinate. If the requested levels are sufficiently close to the\n    levels of the cube, cube slicing will take place instead of\n    interpolation.\nscheme:\n    The vertical interpolation scheme to use. Choose from\n    'linear',\n    'nearest',\n    'linear_extrapolate',\n    'nearest_extrapolate'.\ncoordinate:\n    The coordinate to interpolate. If specified, pressure levels\n    (if present) can be converted to height levels and vice versa using\n    the US standard atmosphere. E.g. 'coordinate = altitude' will convert\n    existing pressure levels (air_pressure) to height levels (altitude);\n    'coordinate = air_pressure' will convert existing height levels\n    (altitude) to pressure levels (air_pressure).\nrtol:\n    Relative tolerance for comparing the levels in `cube` to the requested\n    levels. If the levels are sufficiently close, the requested levels\n    will be assigned to the cube and no interpolation will take place.\natol:\n    Absolute tolerance for comparing the levels in `cube` to the requested\n    levels. If the levels are sufficiently close, the requested levels\n    will be assigned to the cube and no interpolation will take place.\n    By default, `atol` will be set to 10^-7 times the mean value of\n    the levels on the cube.\n\nReturns\n-------\niris.cube.Cube\n    A cube with the requested vertical levels.\n\n\nSee Also\n--------\nregrid : Perform horizontal regridding.",
+      "parameters": [
+        {
+          "name": "levels",
+          "type": "np.typing.ArrayLike | da.Array",
+          "required": true,
+          "default": null,
+          "description": "One or more target levels for the vertical interpolation. Assumed to be in the same S.I. units of the source cube vertical dimension coordinate. If the requested levels are sufficiently close to the levels of the cube, cube slicing will take place instead of interpolation."
+        },
+        {
+          "name": "scheme",
+          "type": "NamedVerticalScheme",
+          "required": true,
+          "default": null,
+          "description": "The vertical interpolation scheme to use. Choose from 'linear', 'nearest', 'linear_extrapolate', 'nearest_extrapolate'."
+        },
+        {
+          "name": "coordinate",
+          "type": "str | None",
+          "required": false,
+          "default": null,
+          "description": "The coordinate to interpolate. If specified, pressure levels (if present) can be converted to height levels and vice versa using the US standard atmosphere. E.g. 'coordinate = altitude' will convert existing pressure levels (air_pressure) to height levels (altitude); 'coordinate = air_pressure' will convert existing height levels (altitude) to pressure levels (air_pressure)."
+        },
+        {
+          "name": "rtol",
+          "type": "float",
+          "required": false,
+          "default": 1e-07,
+          "description": "Relative tolerance for comparing the levels in cube to the requested levels. If the levels are sufficiently close, the requested levels will be assigned to the cube and no interpolation will take place."
+        },
+        {
+          "name": "atol",
+          "type": "float | None",
+          "required": false,
+          "default": null,
+          "description": "Absolute tolerance for comparing the levels in cube to the requested levels. If the levels are sufficiently close, the requested levels will be assigned to the cube and no interpolation will take place. By default, atol will be set to 10^-7 times the mean value of the levels on the cube."
+        }
+      ],
+      "order": 16
+    },
+    {
+      "name": "extract_surface_from_atm",
+      "category": "Volume and levels",
+      "summary": "Extract surface from 3D atmospheric variable based on surface pressure.",
+      "documentation": "Extract surface from 3D atmospheric variable based on surface pressure.\n\nParameters\n----------\ncube:\n    Input cube. Needs :class:`~iris.coords.AncillaryVariable` ``surface_air_pressure``.\n\nReturns\n-------\niris.cube.Cube\n    Collapsed cube.",
+      "parameters": [],
+      "order": 17
+    },
+    {
+      "name": "weighting_landsea_fraction",
+      "category": "Weights",
+      "summary": "Weight fields using land or sea fraction.",
+      "documentation": "Weight fields using land or sea fraction.\n\nThis preprocessor function weights a field with its corresponding land or\nsea area fraction (value between 0 and 1). The application of this is\nimportant for most carbon cycle variables (and other land-surface outputs),\nwhich are e.g. reported in units of `kgC m-2`. This actually refers to 'per\nsquare meter of land/sea' and NOT 'per square meter of gridbox'. So in\norder to integrate these globally or regionally one has to both area-weight\nthe quantity but also weight by the land/sea fraction.\n\nParameters\n----------\ncube : iris.cube.Cube\n    Data cube to be weighted. It should have an\n    :class:`iris.coords.AncillaryVariable` with standard name\n    ``'land_area_fraction'`` or ``'sea_area_fraction'``. If both are\n    present, only the ``'land_area_fraction'`` will be used.\narea_type : str\n    Use land (``'land'``) or sea (``'sea'``) fraction for weighting.\n\nReturns\n-------\niris.cube.Cube\n    Land/sea fraction weighted cube.\n\nRaises\n------\nTypeError\n    ``area_type`` is not ``'land'`` or ``'sea'``.\nValueError\n    Land/sea fraction variables ``sftlf`` or ``sftof`` not found.",
+      "parameters": [
+        {
+          "name": "area_type",
+          "type": "",
+          "required": true,
+          "default": null,
+          "description": "Use land (''land'') or sea (''sea'') fraction for weighting."
+        }
+      ],
+      "order": 18
+    },
+    {
+      "name": "mask_landsea",
+      "category": "Masks",
+      "summary": "Mask out either land mass or sea (oceans, seas and lakes).",
+      "documentation": "Mask out either land mass or sea (oceans, seas and lakes).\n\nIt uses dedicated ancillary variables (sftlf or sftof) or,\nin their absence, it applies a\n`Natural Earth <https://www.naturalearthdata.com>`_ mask (land or ocean\ncontours).\nNote that the Natural Earth masks have different resolutions:\n10m for land, and 50m for seas.\nThese are more than enough for masking climate model data.\n\nParameters\n----------\ncube:\n    Data cube to be masked. If the cube has an\n    :class:`iris.coords.AncillaryVariable` with standard name\n    ``'land_area_fraction'`` or ``'sea_area_fraction'`` that will be used.\n    If both are present, only the 'land_area_fraction' will be used. If the\n    ancillary variable is not available, the mask will be calculated from\n    Natural Earth shapefiles.\nmask_out:\n    Either ``'land'`` to mask out land mass or ``'sea'`` to mask out seas.\n\nReturns\n-------\niris.cube.Cube\n    Returns the masked iris cube.\n\nRaises\n------\nValueError\n    Error raised if masking on irregular grids is attempted without\n    an ancillary variable.\n    Irregular grids are not currently supported for masking\n    with Natural Earth shapefile masks.",
+      "parameters": [
+        {
+          "name": "mask_out",
+          "type": "Literal['land', 'sea']",
+          "required": true,
+          "default": null,
+          "description": "Either ''land'' to mask out land mass or ''sea'' to mask out seas."
+        }
+      ],
+      "order": 19
+    },
+    {
+      "name": "mask_glaciated",
+      "category": "Masks",
+      "summary": "Mask out glaciated areas.",
+      "documentation": "Mask out glaciated areas.\n\nIt applies a Natural Earth mask. Note that for computational reasons\nonly the 10 largest polygons are used for masking.\n\nParameters\n----------\ncube: iris.cube.Cube\n    data cube to be masked.\n\nmask_out: str\n    \"glaciated\" to mask out glaciated areas\n\nReturns\n-------\niris.cube.Cube\n    Returns the masked iris cube.\n\nRaises\n------\nValueError\n    Error raised if masking on irregular grids is attempted or if\n    mask_out has a wrong value.",
+      "parameters": [
+        {
+          "name": "mask_out",
+          "type": "str",
+          "required": false,
+          "default": "glaciated",
+          "description": "\"glaciated\" to mask out glaciated areas"
+        }
+      ],
+      "order": 20
+    },
+    {
+      "name": "mask_landseaice",
+      "category": "Masks",
+      "summary": "Mask out either landsea (combined) or ice.",
+      "documentation": "Mask out either landsea (combined) or ice.\n\nFunction that masks out either landsea (land and seas) or ice (Antarctica,\nGreenland and some glaciers).\n\nIt uses dedicated ancillary variables (sftgif).\n\nParameters\n----------\ncube:\n    Data cube to be masked. It should have an\n    :class:`iris.coords.AncillaryVariable` with standard name\n    ``'land_ice_area_fraction'``.\nmask_out: str\n    Either ``'landsea'`` to mask out land and oceans or ``'ice'`` to mask\n    out ice.\n\nReturns\n-------\niris.cube.Cube\n    Returns the masked iris cube with either land or ice masked out.\n\nRaises\n------\nValueError\n    Error raised if landsea-ice mask not found as an ancillary variable.",
+      "parameters": [
+        {
+          "name": "mask_out",
+          "type": "Literal['landsea', 'ice']",
+          "required": true,
+          "default": null,
+          "description": "Either ''landsea'' to mask out land and oceans or ''ice'' to mask out ice."
+        }
+      ],
+      "order": 21
+    },
+    {
+      "name": "regrid",
+      "category": "Grid and points",
+      "summary": "Perform horizontal regridding.",
+      "documentation": "Perform horizontal regridding.\n\nNote that the target grid can be a :class:`~iris.cube.Cube`, a\n:class:`~esmvalcore.dataset.Dataset`, a path to a cube\n(:class:`~pathlib.Path` or :obj:`str`), a grid spec (:obj:`str`) in the\nform of `MxN` degrees, or a :obj:`dict` specifying the target grid.\n\nFor the latter, the `target_grid` should be a :obj:`dict` with the\nfollowing keys:\n\n- ``start_longitude``: longitude at the center of the first grid cell.\n- ``end_longitude``: longitude at the center of the last grid cell.\n- ``step_longitude``: constant longitude distance between grid cell centers.\n- ``start_latitude``: latitude at the center of the first grid cell.\n- ``end_latitude``: latitude at the center of the last grid cell.\n- ``step_latitude``: constant latitude distance between grid cell centers.\n\nParameters\n----------\ncube:\n    The source cube to be regridded.\ntarget_grid:\n    The (location of a) cube that specifies the target or reference grid\n    for the regridding operation.\n    Alternatively, a :class:`~esmvalcore.dataset.Dataset` can be provided.\n    Alternatively, a CORDEX domain name may be provided, for example\n    ``EUR-11``. Any domain name recognized by the :mod:`cordex` package\n    can be used.\n    Alternatively, a string cell specification may be provided,\n    of the form ``MxN``, which specifies the extent of the cell, longitude\n    by latitude (degrees) for a global, regular target grid.\n    Alternatively, a dictionary with a regional target grid may\n    be specified (see above).\nscheme:\n    The regridding scheme to perform. If the source grid is structured\n    (i.e., rectilinear or curvilinear), can be one of the built-in schemes\n    ``linear``, ``nearest``, ``area_weighted``. If the source grid is\n    unstructured, can be one of the built-in schemes ``linear``,\n    ``nearest``.  Alternatively, a `dict` that specifies generic regridding\n    can be given (see below).\nlat_offset:\n    Offset the grid centers of the latitude coordinate w.r.t. the pole by\n    half a grid step. This argument is ignored if `target_grid` is a cube\n    or file.\nlon_offset:\n    Offset the grid centers of the longitude coordinate w.r.t. Greenwich\n    meridian by half a grid step. This argument is ignored if\n    `target_grid` is a cube or file.\ncache_weights:\n    If ``True``, cache regridding weights for later usage. This can speed\n    up the regridding of different datasets with similar source and target\n    grids massively, but may take up a lot of memory for extremely\n    high-resolution data. This option is ignored for schemes that do not\n    support weights caching. More details on this are given in the section\n    on :ref:`caching_regridding_weights`. To clear the cache, use\n    :func:`esmvalcore.preprocessor.regrid.cache_clear`.\nuse_src_coords:\n    If there are multiple horizontal coordinates available in the source\n    cube, only use horizontal coordinates with these standard names.\n\nReturns\n-------\niris.cube.Cube\n    Regridded cube.\n\nSee Also\n--------\nextract_levels: Perform vertical regridding.\n\nNotes\n-----\nThis preprocessor allows for the use of arbitrary :doc:`Iris <iris:index>`\nregridding schemes, that is anything that can be passed as a scheme to\n:meth:`iris.cube.Cube.regrid` is possible. This enables the use of further\nparameters for existing schemes, as well as the use of more advanced\nschemes for example for unstructured grids.\nTo use this functionality, a dictionary must be passed for the scheme with\na mandatory entry of ``reference`` in the form specified for the object\nreference of the `entry point data model <https://packaging.python.org/en/\nlatest/specifications/entry-points/#data-model>`_,\ni.e. ``importable.module:object.attr``. This is used as a factory for the\nscheme. Any further entries in the dictionary are passed as keyword\narguments to the factory.\n\nFor example, to use the familiar :class:`iris.analysis.Linear` regridding\nscheme with a custom extrapolation mode, use\n\n.. code-block:: yaml\n\n    my_preprocessor:\n      regrid:\n        target: 1x1\n        scheme:\n          reference: iris.analysis:Linear\n          extrapolation_mode: nanmask\n\nTo use the area weighted regridder available in\n:class:`esmf_regrid.schemes.ESMFAreaWeighted` use\n\n.. code-block:: yaml\n\n    my_preprocessor:\n      regrid:\n        target: 1x1\n        scheme:\n          reference: esmf_regrid.schemes:ESMFAreaWeighted",
+      "parameters": [
+        {
+          "name": "target_grid",
+          "type": "Cube | Dataset | Path | str | dict",
+          "required": true,
+          "default": null,
+          "description": "The (location of a) cube that specifies the target or reference grid for the regridding operation. Alternatively, a Dataset can be provided. Alternatively, a CORDEX domain name may be provided, for example 'EUR-11'. Any domain name recognized by the cordex package can be used. Alternatively, a string cell specification may be provided, of the form 'MxN', which specifies the extent of the cell, longitude by latitude (degrees) for a global, regular target grid. Alternatively, a dictionary with a regional target grid may be specified (see above)."
+        },
+        {
+          "name": "scheme",
+          "type": "NamedHorizontalScheme | dict",
+          "required": true,
+          "default": null,
+          "description": "The regridding scheme to perform. If the source grid is structured (i.e., rectilinear or curvilinear), can be one of the built-in schemes 'linear', 'nearest', 'area_weighted'. If the source grid is unstructured, can be one of the built-in schemes 'linear', 'nearest'. Alternatively, a dict that specifies generic regridding can be given (see below)."
+        },
+        {
+          "name": "lat_offset",
+          "type": "bool",
+          "required": false,
+          "default": true,
+          "description": "Offset the grid centers of the latitude coordinate w.r.t. the pole by half a grid step. This argument is ignored if target_grid is a cube or file."
+        },
+        {
+          "name": "lon_offset",
+          "type": "bool",
+          "required": false,
+          "default": true,
+          "description": "Offset the grid centers of the longitude coordinate w.r.t. Greenwich meridian by half a grid step. This argument is ignored if target_grid is a cube or file."
+        },
+        {
+          "name": "cache_weights",
+          "type": "bool",
+          "required": false,
+          "default": false,
+          "description": "If 'True', cache regridding weights for later usage. This can speed up the regridding of different datasets with similar source and target grids massively, but may take up a lot of memory for extremely high-resolution data. This option is ignored for schemes that do not support weights caching. More details on this are given in the section on caching_regridding_weights. To clear the cache, use cache_clear."
+        },
+        {
+          "name": "use_src_coords",
+          "type": "Iterable[str]",
+          "required": false,
+          "default": [
+            "latitude",
+            "longitude"
+          ],
+          "description": "If there are multiple horizontal coordinates available in the source cube, only use horizontal coordinates with these standard names."
+        }
+      ],
+      "order": 22
+    },
+    {
+      "name": "extract_coordinate_points",
+      "category": "Grid and points",
+      "summary": "Extract points from any coordinate with interpolation.",
+      "documentation": "Extract points from any coordinate with interpolation.\n\nMultiple points can also be extracted, by supplying an array of\ncoordinates. The resulting point cube will match the respective\ncoordinates to those of the input coordinates.\nIf the input coordinate is a scalar, the dimension will be a\nscalar in the output cube.\n\nParameters\n----------\ncube:\n    The source cube to extract a point from.\ndefinition:\n    The coordinate - values pairs to extract\nscheme:\n    The interpolation scheme. 'linear' or 'nearest'. No default.\n\nReturns\n-------\niris.cube.Cube\n    Returns a cube with the extracted point(s), and with adjusted\n    latitude and longitude coordinates (see above). If desired point\n    outside values for at least one coordinate, this cube will have fully\n    masked data.\n\nRaises\n------\nValueError:\n    If the interpolation scheme is not provided or is not recognised.",
+      "parameters": [
+        {
+          "name": "definition",
+          "type": "dict[str, ArrayLike]",
+          "required": true,
+          "default": null,
+          "description": "The coordinate - values pairs to extract"
+        },
+        {
+          "name": "scheme",
+          "type": "NamedPointInterpolationScheme",
+          "required": true,
+          "default": null,
+          "description": "The interpolation scheme. 'linear' or 'nearest'. No default."
+        }
+      ],
+      "order": 23
+    },
+    {
+      "name": "extract_point",
+      "category": "Grid and points",
+      "summary": "Extract a point, with interpolation.",
+      "documentation": "Extract a point, with interpolation.\n\nExtracts a single latitude/longitude point from a cube, according\nto the interpolation scheme `scheme`.\n\nMultiple points can also be extracted, by supplying an array of\nlatitude and/or longitude coordinates. The resulting point cube\nwill match the respective latitude and longitude coordinate to\nthose of the input coordinates. If the input coordinate is a\nscalar, the dimension will be missing in the output cube (that is,\nit will be a scalar).\n\nIf the point to be extracted has at least one of the coordinate point\nvalues outside the interval of the cube's same coordinate values, then\nno extrapolation will be performed, and the resulting extracted cube\nwill have fully masked data.\n\nParameters\n----------\ncube:\n    The source cube to extract a point from.\nlatitude:\n    The latitude of the point.\nlongitude:\n    The longitude of the point.\nscheme:\n    The interpolation scheme. 'linear' or 'nearest'. No default.\n\nReturns\n-------\niris.cube.Cube\n    Returns a cube with the extracted point(s), and with adjusted\n    latitude and longitude coordinates (see above). If desired point\n    outside values for at least one coordinate, this cube will have fully\n    masked data.\n\nRaises\n------\nValueError:\n    If the interpolation scheme is None or unrecognized.\n\nExamples\n--------\nWith a cube that has the coordinates\n\n- latitude: [1, 2, 3, 4]\n- longitude: [1, 2, 3, 4]\n- data values: [[[1, 2, 3, 4], [5, 6, ...], [...], [...],\n                  ... ]]]\n\n>>> point = extract_point(cube, 2.5, 2.5, 'linear')  # doctest: +SKIP\n>>> point.data  # doctest: +SKIP\narray([ 8.5, 24.5, 40.5, 56.5])\n\nExtraction of multiple points at once, with a nearest matching scheme.\nThe values for 0.1 will result in masked values, since this lies outside\nthe cube grid.\n\n>>> point = extract_point(cube, [1.4, 2.1], [0.1, 1.1],\n...                       'nearest')  # doctest: +SKIP\n>>> point.data.shape  # doctest: +SKIP\n(4, 2, 2)\n>>> # x, y, z indices of masked values\n>>> np.where(~point.data.mask)     # doctest: +SKIP\n(array([0, 0, 1, 1, 2, 2, 3, 3]), array([0, 1, 0, 1, 0, 1, 0, 1]),\narray([1, 1, 1, 1, 1, 1, 1, 1]))\n>>> point.data[~point.data.mask].data  # doctest: +SKIP\narray([ 1,  5, 17, 21, 33, 37, 49, 53])",
+      "parameters": [
+        {
+          "name": "latitude",
+          "type": "ArrayLike",
+          "required": true,
+          "default": null,
+          "description": "The latitude of the point."
+        },
+        {
+          "name": "longitude",
+          "type": "ArrayLike",
+          "required": true,
+          "default": null,
+          "description": "The longitude of the point."
+        },
+        {
+          "name": "scheme",
+          "type": "NamedPointInterpolationScheme",
+          "required": true,
+          "default": null,
+          "description": "The interpolation scheme. 'linear' or 'nearest'. No default."
+        }
+      ],
+      "order": 24
+    },
+    {
+      "name": "extract_location",
+      "category": "Grid and points",
+      "summary": "Extract a point using a location name, with interpolation.",
+      "documentation": "Extract a point using a location name, with interpolation.\n\nExtracts a single location point from a cube, according\nto the interpolation scheme ``scheme``.\n\nThe function just retrieves the coordinates of the location and then calls\nthe ``extract_point`` preprocessor.\n\nIt can be used to locate cities and villages, but also mountains or other\ngeographical locations.\n\nNote\n----\nThe geolocator needs a working internet connection.\n\nParameters\n----------\ncube:\n    The source cube to extract a point from.\nlocation:\n    The reference location. Examples: 'mount everest',\n    'romania','new york, usa'\nscheme:\n    The interpolation scheme. 'linear' or 'nearest'. No default.\n\nReturns\n-------\niris.cube.Cube\n    Returns a cube with the extracted point, and with adjusted latitude and\n    longitude coordinates.\n\nRaises\n------\nValueError:\n    If location is not supplied as a preprocessor parameter.\nValueError:\n    If scheme is not supplied as a preprocessor parameter.\nValueError:\n    If given location cannot be found by the geolocator.",
+      "parameters": [
+        {
+          "name": "location",
+          "type": "str",
+          "required": true,
+          "default": null,
+          "description": "The reference location. Examples: 'mount everest', 'romania','new york, usa'"
+        },
+        {
+          "name": "scheme",
+          "type": "NamedPointInterpolationScheme",
+          "required": true,
+          "default": null,
+          "description": "The interpolation scheme. 'linear' or 'nearest'. No default."
+        }
+      ],
+      "order": 25
+    },
+    {
+      "name": "mask_multimodel",
+      "category": "Masks",
+      "summary": "Apply common mask to all datasets (using logical OR).",
+      "documentation": "Apply common mask to all datasets (using logical OR).\n\nParameters\n----------\nproducts : iris.cube.CubeList or list of PreprocessorFile\n    Data products/cubes to be masked.\n\nReturns\n-------\niris.cube.CubeList or list of PreprocessorFile\n    Masked data products/cubes.\n\nRaises\n------\nValueError\n    Datasets have different shapes.\nTypeError\n    Invalid input data.",
+      "parameters": [],
+      "order": 26
+    },
+    {
+      "name": "mask_fillvalues",
+      "category": "Masks",
+      "summary": "Compute and apply a multi-dataset fillvalues mask.",
+      "documentation": "Compute and apply a multi-dataset fillvalues mask.\n\nConstruct the mask that fills a certain time window with missing values\nif the number of values in that specific window is less than a given\nfractional threshold.\nThis function is the extension of _get_fillvalues_mask and performs the\ncombination of missing values masks from each model (of multimodels)\ninto a single fillvalues mask to be applied to each model.\n\nParameters\n----------\nproducts:\n    data products to be masked.\n\nthreshold_fraction:\n    fractional threshold to be used as argument for Aggregator.\n    Must be between 0 and 1.\n\nmin_value:\n    minimum value threshold; default None\n    If default, no thresholding applied so the full mask will be selected.\n\ntime_window:\n    time window to compute missing data counts; default set to 1.\n\nReturns\n-------\n:\n    Masked iris cubes.\n\nRaises\n------\nNotImplementedError\n    Implementation missing for data with higher dimensionality than 4.",
+      "parameters": [
+        {
+          "name": "threshold_fraction",
+          "type": "float",
+          "required": true,
+          "default": null,
+          "description": "fractional threshold to be used as argument for Aggregator. Must be between 0 and 1."
+        },
+        {
+          "name": "min_value",
+          "type": "float | None",
+          "required": false,
+          "default": null,
+          "description": "minimum value threshold; default None If default, no thresholding applied so the full mask will be selected."
+        },
+        {
+          "name": "time_window",
+          "type": "int",
+          "required": false,
+          "default": 1,
+          "description": "time window to compute missing data counts; default set to 1."
+        }
+      ],
+      "order": 27
+    },
+    {
+      "name": "mask_above_threshold",
+      "category": "Masks",
+      "summary": "Mask above a specific threshold value.",
+      "documentation": "Mask above a specific threshold value.\n\nTakes a value 'threshold' and masks off anything that is above\nit in the cube data. Values equal to the threshold are not masked.\n\nParameters\n----------\ncube: iris.cube.Cube\n    iris cube to be thresholded.\n\nthreshold: float\n    threshold to be applied on input cube data.\n\nReturns\n-------\niris.cube.Cube\n    thresholded cube.",
+      "parameters": [
+        {
+          "name": "threshold",
+          "type": "",
+          "required": true,
+          "default": null,
+          "description": "threshold to be applied on input cube data."
+        }
+      ],
+      "order": 28
+    },
+    {
+      "name": "mask_below_threshold",
+      "category": "Masks",
+      "summary": "Mask below a specific threshold value.",
+      "documentation": "Mask below a specific threshold value.\n\nTakes a value 'threshold' and masks off anything that is below\nit in the cube data. Values equal to the threshold are not masked.\n\nParameters\n----------\ncube: iris.cube.Cube\n    iris cube to be thresholded\nthreshold: float\n    threshold to be applied on input cube data.\n\nReturns\n-------\niris.cube.Cube\n    thresholded cube.",
+      "parameters": [
+        {
+          "name": "threshold",
+          "type": "",
+          "required": true,
+          "default": null,
+          "description": "threshold to be applied on input cube data."
+        }
+      ],
+      "order": 29
+    },
+    {
+      "name": "mask_inside_range",
+      "category": "Masks",
+      "summary": "Mask inside a specific threshold range.",
+      "documentation": "Mask inside a specific threshold range.\n\nTakes a MINIMUM and a MAXIMUM value for the range, and masks off anything\nthat's between the two in the cube data.\n\nParameters\n----------\ncube: iris.cube.Cube\n    iris cube to be thresholded\nminimum: float\n    lower threshold to be applied on input cube data.\nmaximum: float\n    upper threshold to be applied on input cube data.\n\nReturns\n-------\niris.cube.Cube\n    thresholded cube.",
+      "parameters": [
+        {
+          "name": "minimum",
+          "type": "",
+          "required": true,
+          "default": null,
+          "description": "lower threshold to be applied on input cube data."
+        },
+        {
+          "name": "maximum",
+          "type": "",
+          "required": true,
+          "default": null,
+          "description": "upper threshold to be applied on input cube data."
+        }
+      ],
+      "order": 30
+    },
+    {
+      "name": "mask_outside_range",
+      "category": "Masks",
+      "summary": "Mask outside a specific threshold range.",
+      "documentation": "Mask outside a specific threshold range.\n\nTakes a MINIMUM and a MAXIMUM value for the range, and masks off anything\nthat's outside the two in the cube data.\n\nParameters\n----------\ncube: iris.cube.Cube\n    iris cube to be thresholded\nminimum: float\n    lower threshold to be applied on input cube data.\nmaximum: float\n    upper threshold to be applied on input cube data.\n\nReturns\n-------\niris.cube.Cube\n    thresholded cube.",
+      "parameters": [
+        {
+          "name": "minimum",
+          "type": "",
+          "required": true,
+          "default": null,
+          "description": "lower threshold to be applied on input cube data."
+        },
+        {
+          "name": "maximum",
+          "type": "",
+          "required": true,
+          "default": null,
+          "description": "upper threshold to be applied on input cube data."
+        }
+      ],
+      "order": 31
+    },
+    {
+      "name": "clip",
+      "category": "Other",
+      "summary": "Clip values at a specified minimum and/or maximum value.",
+      "documentation": "Clip values at a specified minimum and/or maximum value.\n\nValues lower than minimum are set to minimum and values higher than maximum\nare set to maximum.\n\nParameters\n----------\ncube:\n    Input cube.\nminimum:\n    Lower threshold to be applied on input cube data.\nmaximum:\n    Upper threshold to be applied on input cube data.\n\nReturns\n-------\niris.cube.Cube\n    Clipped cube.\n\nRaises\n------\nValueError\n    ``minimum`` and ``maximum`` are set to ``None``.",
+      "parameters": [
+        {
+          "name": "minimum",
+          "type": "float | None",
+          "required": false,
+          "default": null,
+          "description": "Lower threshold to be applied on input cube data."
+        },
+        {
+          "name": "maximum",
+          "type": "float | None",
+          "required": false,
+          "default": null,
+          "description": "Upper threshold to be applied on input cube data."
+        }
+      ],
+      "order": 32
+    },
+    {
+      "name": "rolling_window_statistics",
+      "category": "Rolling windows",
+      "summary": "Compute rolling-window statistics over a coordinate.",
+      "documentation": "Compute rolling-window statistics over a coordinate.\n\nParameters\n----------\ncube:\n    Input cube.\ncoordinate:\n    Coordinate over which the rolling-window statistics is calculated.\noperator:\n    The operation. Used to determine the :class:`iris.analysis.Aggregator`\n    object used to calculate the statistics. Allowed options are given in\n    :ref:`this table <supported_stat_operator>`.\n**operator_kwargs:\n    Optional keyword arguments for the :class:`iris.analysis.Aggregator`\n    object defined by `operator`.\nwindow_length:\n    Size of the window to use.\n\nReturns\n-------\niris.cube.Cube\n    Rolling-window statistics cube.",
+      "parameters": [
+        {
+          "name": "coordinate",
+          "type": "str",
+          "required": true,
+          "default": null,
+          "description": "Coordinate over which the rolling-window statistics is calculated."
+        },
+        {
+          "name": "operator",
+          "type": "str",
+          "required": true,
+          "default": null,
+          "description": "The operation. Used to determine the Aggregator object used to calculate the statistics. Allowed options are given in this table."
+        },
+        {
+          "name": "window_length",
+          "type": "int",
+          "required": true,
+          "default": null,
+          "description": "Size of the window to use."
+        }
+      ],
+      "order": 33
+    },
+    {
+      "name": "cumulative_sum",
+      "category": "Other",
+      "summary": "Calculate cumulative sum of the elements along a given coordinate.",
+      "documentation": "Calculate cumulative sum of the elements along a given coordinate.\n\nParameters\n----------\ncube:\n    Input cube.\ncoord:\n    Coordinate over which the cumulative sum is calculated. Must be 0D or\n    1D.\nweights:\n    Weights for the calculation of the cumulative sum. Each element in the\n    data is multiplied by the corresponding weight before summing. Can be\n    an array of the same shape as the input data, ``False`` or ``None`` (no\n    weighting), or ``True`` (calculate the weights from the coordinate\n    bounds; only works if each coordinate point has exactly 2 bounds).\nmethod:\n    Method used to perform the cumulative sum. Only relevant if the cube\n    has `lazy data\n    <https://scitools-iris.readthedocs.io/en/stable/userguide/\n    real_and_lazy_data.html>`__. See :func:`dask.array.cumsum` for details.\n\nReturns\n-------\nCube\n    Cube of cumulative sum. Has same dimensions and coordinates of the\n    input cube.\n\nRaises\n------\niris.exceptions.CoordinateMultiDimError\n    ``coord`` is not 0D or 1D.\niris.exceptions.CoordinateNotFoundError\n    ``coord`` is not found in ``cube``.",
+      "parameters": [
+        {
+          "name": "coord",
+          "type": "Coord | str",
+          "required": true,
+          "default": null,
+          "description": "Coordinate over which the cumulative sum is calculated. Must be 0D or 1D."
+        },
+        {
+          "name": "weights",
+          "type": "np.ndarray | da.Array | bool | None",
+          "required": false,
+          "default": null,
+          "description": "Weights for the calculation of the cumulative sum. Each element in the data is multiplied by the corresponding weight before summing. Can be an array of the same shape as the input data, 'False' or 'None' (no weighting), or 'True' (calculate the weights from the coordinate bounds; only works if each coordinate point has exactly 2 bounds)."
+        },
+        {
+          "name": "method",
+          "type": "Literal['sequential', 'blelloch']",
+          "required": false,
+          "default": "sequential",
+          "description": "Method used to perform the cumulative sum. Only relevant if the cube has lazy data <https://scitools-iris.readthedocs.io/en/stable/userguide/ real_and_lazy_data.html>__. See cumsum for details."
+        }
+      ],
+      "order": 34
+    },
+    {
+      "name": "extract_region",
+      "category": "Area and regions",
+      "summary": "Extract a region from a cube.",
+      "documentation": "Extract a region from a cube.\n\nFunction that subsets a cube on a box (start_longitude, end_longitude,\nstart_latitude, end_latitude).\n\nParameters\n----------\ncube:\n    Input data cube.\nstart_longitude:\n    Western boundary longitude.\nend_longitude:\n    Eastern boundary longitude.\nstart_latitude:\n    Southern Boundary latitude.\nend_latitude:\n    Northern Boundary Latitude.\n\nReturns\n-------\niris.cube.Cube\n    Smaller cube.",
+      "parameters": [
+        {
+          "name": "start_longitude",
+          "type": "float",
+          "required": true,
+          "default": null,
+          "description": "Western boundary longitude."
+        },
+        {
+          "name": "end_longitude",
+          "type": "float",
+          "required": true,
+          "default": null,
+          "description": "Eastern boundary longitude."
+        },
+        {
+          "name": "start_latitude",
+          "type": "float",
+          "required": true,
+          "default": null,
+          "description": "Southern Boundary latitude."
+        },
+        {
+          "name": "end_latitude",
+          "type": "float",
+          "required": true,
+          "default": null,
+          "description": "Northern Boundary Latitude."
+        }
+      ],
+      "order": 35
+    },
+    {
+      "name": "extract_shape",
+      "category": "Area and regions",
+      "summary": "Extract a region defined by a shapefile using masking.",
+      "documentation": "Extract a region defined by a shapefile using masking.\n\nNote that this function does not work for shapes crossing the\nprime meridian or poles.\n\nParameters\n----------\ncube:\n    Input cube.\nshapefile:\n    A shapefile defining the region(s) to extract. Also accepts the\n    following strings to load special shapefiles:\n\n    * ``'ar6'``:  IPCC WG1 reference regions (v4) used in Assessment Report\n      6 (https://doi.org/10.5281/zenodo.5176260). Should be used in\n      combination with a :obj:`dict` for the argument `ids`, e.g.,\n      ``ids={'Acronym': ['GIC', 'WNA']}``.\nmethod:\n    Select all points contained by the shape or select a single\n    representative point. Choose either `'contains'` or `'representative'`.\n    If `'contains'` is used, but not a single grid point is contained by\n    the shape, a representative point will be selected.\ncrop:\n    In addition to masking, crop the resulting cube using\n    :func:`~esmvalcore.preprocessor.extract_region`. Data on irregular\n    grids will not be cropped.\ndecomposed:\n    If set to `True`, the output cube will have an additional dimension\n    `shape_id` describing the requested regions.\nids:\n    Shapes to be read from the shapefile. Can be given as:\n\n    * :obj:`list`: IDs are assigned from the attributes `name`, `NAME`,\n      `Name`, `id`, or `ID` (in that priority order; the first one\n      available is used). If none of these attributes are available in the\n      shapefile, assume that the given `ids` correspond to the reading\n      order of the individual shapes, e.g., ``ids=[0, 2]`` corresponds to\n      the first and third shape read from the shapefile. Note: An empty\n      list is interpreted as `ids=None`.\n    * :obj:`dict`: IDs (dictionary value; :obj:`list` of :obj:`str`) are\n      assigned from attribute given as dictionary key (:obj:`str`). Only\n      dictionaries with length 1 are supported.\n      Example: ``ids={'Acronym': ['GIC', 'WNA']}`` for ``shapefile='ar6'``.\n    * `None`: select all available shapes from the shapefile.\n\nReturns\n-------\niris.cube.Cube\n    Cube containing the extracted region.\n\nSee Also\n--------\nextract_region: Extract a region from a cube.",
+      "parameters": [
+        {
+          "name": "shapefile",
+          "type": "str | Path",
+          "required": true,
+          "default": null,
+          "description": "A shapefile defining the region(s) to extract. Also accepts the following strings to load special shapefiles: * ''ar6'': IPCC WG1 reference regions (v4) used in Assessment Report 6 (https://doi.org/10.5281/zenodo.5176260). Should be used in combination with a dict for the argument ids, e.g., 'ids={'Acronym': ['GIC', 'WNA']}'."
+        },
+        {
+          "name": "method",
+          "type": "str",
+          "required": false,
+          "default": "contains",
+          "description": "Select all points contained by the shape or select a single representative point. Choose either 'contains' or 'representative'. If 'contains' is used, but not a single grid point is contained by the shape, a representative point will be selected."
+        },
+        {
+          "name": "crop",
+          "type": "bool",
+          "required": false,
+          "default": true,
+          "description": "In addition to masking, crop the resulting cube using extract_region. Data on irregular grids will not be cropped."
+        },
+        {
+          "name": "decomposed",
+          "type": "bool",
+          "required": false,
+          "default": false,
+          "description": "If set to True, the output cube will have an additional dimension shape_id describing the requested regions."
+        },
+        {
+          "name": "ids",
+          "type": "list | dict | None",
+          "required": false,
+          "default": null,
+          "description": "Shapes to be read from the shapefile. Can be given as: * list: IDs are assigned from the attributes name, NAME, Name, id, or ID (in that priority order; the first one available is used). If none of these attributes are available in the shapefile, assume that the given ids correspond to the reading order of the individual shapes, e.g., 'ids=[0, 2]' corresponds to the first and third shape read from the shapefile. Note: An empty list is interpreted as ids=None. * dict: IDs (dictionary value; list of str) are assigned from attribute given as dictionary key (str). Only dictionaries with length 1 are supported. Example: 'ids={'Acronym': ['GIC', 'WNA']}' for 'shapefile='ar6''. * None: select all available shapes from the shapefile."
+        }
+      ],
+      "order": 36
+    },
+    {
+      "name": "extract_volume",
+      "category": "Volume and levels",
+      "summary": "Subset a cube based on a range of values in the z-coordinate.",
+      "documentation": "Subset a cube based on a range of values in the z-coordinate.\n\nFunction that subsets a cube on a box of (z_min, z_max),\n(z_min, z_max], [z_min, z_max) or [z_min, z_max]\nNote that this requires the requested z-coordinate range to be the\nsame sign as the iris cube. ie, if the cube has z-coordinate as\nnegative, then z_min and z_max need to be negative numbers.\nIf nearest_value is set to `False`, the extraction will be\nperformed with the given z_min and z_max values.\nIf nearest_value is set to `True`, the cube extraction will be\nperformed taking into account the z_coord values that are closest\nto the z_min and z_max values.\n\nParameters\n----------\ncube:\n    Input cube.\nz_min:\n    Minimum depth to extract.\nz_max:\n    Maximum depth to extract.\ninterval_bounds:\n    Sets left bound of the interval to either 'open', 'closed',\n    'left_closed' or 'right_closed'.\nnearest_value:\n    Extracts considering the nearest value of z-coord to z_min and z_max.\n\nReturns\n-------\niris.cube.Cube\n    z-coord extracted cube.",
+      "parameters": [
+        {
+          "name": "z_min",
+          "type": "float",
+          "required": true,
+          "default": null,
+          "description": "Minimum depth to extract."
+        },
+        {
+          "name": "z_max",
+          "type": "float",
+          "required": true,
+          "default": null,
+          "description": "Maximum depth to extract."
+        },
+        {
+          "name": "interval_bounds",
+          "type": "str",
+          "required": false,
+          "default": "open",
+          "description": "Sets left bound of the interval to either 'open', 'closed', 'left_closed' or 'right_closed'."
+        },
+        {
+          "name": "nearest_value",
+          "type": "bool",
+          "required": false,
+          "default": false,
+          "description": "Extracts considering the nearest value of z-coord to z_min and z_max."
+        }
+      ],
+      "order": 37
+    },
+    {
+      "name": "extract_trajectory",
+      "category": "Volume and levels",
+      "summary": "Extract data along a trajectory.",
+      "documentation": "Extract data along a trajectory.\n\nlatitudes and longitudes are the pairs of coordinates for two points.\nnumber_points is the number of points between the two points.\n\nThis version uses the expensive interpolate method, but it may be\nnecceasiry for irregular grids.\n\nIf only two latitude and longitude coordinates are given,\nextract_trajectory will produce a cube will extrapolate along a line\nbetween those two points, and will add `number_points` points between\nthe two corners.\n\nIf more than two points are provided, then\nextract_trajectory will produce a cube which has extrapolated the data\nof the cube to those points, and `number_points` is not needed.\n\nParameters\n----------\ncube:\n    Input cube.\nlatitudes:\n    Latitude coordinates.\nlongitudes:\n    Longitude coordinates.\nnumber_points: optional\n    Number of points to extrapolate.\n\nReturns\n-------\niris.cube.Cube\n    Collapsed cube.\n\nRaises\n------\nValueError\n    Latitude and longitude have different dimensions.",
+      "parameters": [
+        {
+          "name": "latitudes",
+          "type": "Sequence[float]",
+          "required": true,
+          "default": null,
+          "description": "Latitude coordinates."
+        },
+        {
+          "name": "longitudes",
+          "type": "Sequence[float]",
+          "required": true,
+          "default": null,
+          "description": "Longitude coordinates."
+        },
+        {
+          "name": "number_points",
+          "type": "int",
+          "required": false,
+          "default": 2,
+          "description": "Number of points to extrapolate."
+        }
+      ],
+      "order": 38
+    },
+    {
+      "name": "extract_transect",
+      "category": "Volume and levels",
+      "summary": "Extract data along a line of constant latitude or longitude.",
+      "documentation": "Extract data along a line of constant latitude or longitude.\n\nBoth arguments, latitude and longitude, are treated identically.\nEither argument can be a single float, or a pair of floats, or can be\nleft empty.\nThe single float indicates the latitude or longitude along which the\ntransect should be extracted.\nA pair of floats indicate the range that the transect should be\nextracted along the secondairy axis.\n\nFor instance `'extract_transect(cube, longitude=-28)'` will produce a\ntransect along 28 West.\n\nAlso, `'extract_transect(cube, longitude=-28, latitude=[-50, 50])'` will\nproduce a transect along 28 West between 50 south and 50 North.\n\nThis function is not yet implemented for irregular arrays - instead\ntry the extract_trajectory function, but note that it is currently\nvery slow. Alternatively, use the regrid preprocessor to regrid along\na regular grid and then extract the transect.\n\nParameters\n----------\ncube:\n    Input cube.\nlatitude: optional\n    Transect latitude or range.\nlongitude:  optional\n    Transect longitude or range.\n\nReturns\n-------\niris.cube.Cube\n    Collapsed cube.\n\nRaises\n------\nValueError\n    Slice extraction not implemented for irregular grids.\nValueError\n    Latitude and longitude are both floats or lists; not allowed to slice\n    on both axes at the same time.",
+      "parameters": [
+        {
+          "name": "latitude",
+          "type": "None | float | Iterable[float]",
+          "required": false,
+          "default": null,
+          "description": "Transect latitude or range."
+        },
+        {
+          "name": "longitude",
+          "type": "None | float | Iterable[float]",
+          "required": false,
+          "default": null,
+          "description": "Transect longitude or range."
+        }
+      ],
+      "order": 39
+    },
+    {
+      "name": "detrend",
+      "category": "Trends",
+      "summary": "Detrend data along a given dimension.",
+      "documentation": "Detrend data along a given dimension.\n\nParameters\n----------\ncube: iris.cube.Cube\n    input cube.\ndimension: str\n    Dimension to detrend\nmethod: str\n    Method to detrend. Available: linear, constant. See documentation of\n    'scipy.signal.detrend' for details\n\nReturns\n-------\niris.cube.Cube\n    Detrended cube",
+      "parameters": [
+        {
+          "name": "dimension",
+          "type": "",
+          "required": false,
+          "default": "time",
+          "description": "Dimension to detrend"
+        },
+        {
+          "name": "method",
+          "type": "",
+          "required": false,
+          "default": "linear",
+          "description": "Method to detrend. Available: linear, constant. See documentation of 'scipy.signal.detrend' for details"
+        }
+      ],
+      "order": 40
+    },
+    {
+      "name": "extract_named_regions",
+      "category": "Area and regions",
+      "summary": "Extract a specific named region.",
+      "documentation": "Extract a specific named region.\n\nThe region coordinate exist in certain CMIP datasets.\nThis preprocessor allows a specific named regions to be extracted.\n\nParameters\n----------\ncube:\n   Input cube.\nregions:\n    A region or list of regions to extract.\n\nReturns\n-------\niris.cube.Cube\n    Smaller cube.\n\nRaises\n------\nValueError\n    regions is not list or tuple or set.\nValueError\n    region not included in cube.",
+      "parameters": [
+        {
+          "name": "regions",
+          "type": "str | Iterable[str]",
+          "required": true,
+          "default": null,
+          "description": "A region or list of regions to extract."
+        }
+      ],
+      "order": 41
+    },
+    {
+      "name": "axis_statistics",
+      "category": "Volume and levels",
+      "summary": "Perform statistics along a given axis.",
+      "documentation": "Perform statistics along a given axis.\n\nOperates over an axis direction.\n\nNote\n----\nThe `mean`, `sum` and `rms` operations are weighted by the corresponding\ncoordinate bounds by default. For `sum`, the units of the resulting cube\nwill be multiplied by corresponding coordinate units.\n\nArguments\n---------\ncube:\n    Input cube.\naxis:\n    Direction over where to apply the operator. Possible values are `x`,\n    `y`, `z`, `t`.\noperator:\n    The operation. Used to determine the :class:`iris.analysis.Aggregator`\n    object used to calculate the statistics. Allowed options are given in\n    :ref:`this table <supported_stat_operator>`.\nnormalize:\n    If given, do not return the statistics cube itself, but rather, the\n    input cube, normalized with the statistics cube. Can either be\n    `subtract` (statistics cube is subtracted from the input cube) or\n    `divide` (input cube is divided by the statistics cube).\n**operator_kwargs:\n    Optional keyword arguments for the :class:`iris.analysis.Aggregator`\n    object defined by `operator`.\n\nReturns\n-------\niris.cube.Cube\n    Collapsed cube.",
+      "parameters": [
+        {
+          "name": "axis",
+          "type": "str",
+          "required": true,
+          "default": null,
+          "description": ""
+        },
+        {
+          "name": "operator",
+          "type": "str",
+          "required": true,
+          "default": null,
+          "description": ""
+        },
+        {
+          "name": "normalize",
+          "type": "Literal['subtract', 'divide'] | None",
+          "required": false,
+          "default": null,
+          "description": ""
+        }
+      ],
+      "order": 42
+    },
+    {
+      "name": "depth_integration",
+      "category": "Volume and levels",
+      "summary": "Determine the total sum over the vertical component.",
+      "documentation": "Determine the total sum over the vertical component.\n\nRequires a 3D cube. The z-coordinate integration is calculated by taking\nthe sum in the z direction of the cell contents multiplied by the cell\nthickness. The units of the resulting cube are multiplied by the\nz-coordinate units.\n\nArguments\n---------\ncube:\n    Input cube.\n\nReturns\n-------\niris.cube.Cube\n    Collapsed cube.",
+      "parameters": [],
+      "order": 43
+    },
+    {
+      "name": "area_statistics",
+      "category": "Area and regions",
+      "summary": "Apply a statistical operator in the horizontal plane.",
+      "documentation": "Apply a statistical operator in the horizontal plane.\n\nWe assume that the horizontal directions are ['longitude', 'latitude'].\n\n:ref:`This table <supported_stat_operator>` shows a list of supported\noperators. All operators that support weights are by default weighted with\nthe grid cell areas. Note that for area-weighted sums, the units of the\nresulting cube will be multiplied by m :math:`^2`.\n\nParameters\n----------\ncube:\n    Input cube. The input cube should have a\n    :class:`iris.coords.CellMeasure` named ``'cell_area'``, unless it has\n    regular 1D latitude and longitude coordinates so the cell areas can be\n    computed using :func:`iris.analysis.cartography.area_weights`.\noperator:\n    The operation. Used to determine the :class:`iris.analysis.Aggregator`\n    object used to calculate the statistics. Allowed options are given in\n    :ref:`this table <supported_stat_operator>`.\nnormalize:\n    If given, do not return the statistics cube itself, but rather, the\n    input cube, normalized with the statistics cube. Can either be\n    `subtract` (statistics cube is subtracted from the input cube) or\n    `divide` (input cube is divided by the statistics cube).\n**operator_kwargs:\n    Optional keyword arguments for the :class:`iris.analysis.Aggregator`\n    object defined by `operator`.\n\nReturns\n-------\niris.cube.Cube\n    Collapsed cube.\n\nRaises\n------\niris.exceptions.CoordinateMultiDimError\n    Cube has irregular or unstructured grid but supplementary variable\n    `cell_area` is not available.",
+      "parameters": [
+        {
+          "name": "operator",
+          "type": "str",
+          "required": true,
+          "default": null,
+          "description": "The operation. Used to determine the Aggregator object used to calculate the statistics. Allowed options are given in this table."
+        },
+        {
+          "name": "normalize",
+          "type": "Literal['subtract', 'divide'] | None",
+          "required": false,
+          "default": null,
+          "description": "If given, do not return the statistics cube itself, but rather, the input cube, normalized with the statistics cube. Can either be subtract (statistics cube is subtracted from the input cube) or divide (input cube is divided by the statistics cube)."
+        }
+      ],
+      "order": 44
+    },
+    {
+      "name": "volume_statistics",
+      "category": "Volume and levels",
+      "summary": "Apply a statistical operation over a volume.",
+      "documentation": "Apply a statistical operation over a volume.\n\nThe volume average is weighted according to the cell volume.\n\nParameters\n----------\ncube:\n    Input cube. The input cube should have a\n    :class:`iris.coords.CellMeasure` named ``'ocean_volume'``, unless it\n    has a :class:`iris.coords.CellMeasure` named ``'cell_area'`` or\n    regular 1D latitude and longitude coordinates so the cell areas\n    can be computed using :func:`iris.analysis.cartography.area_weights`.\n    The volume will be computed from the area multiplied by the\n    thickness, computed from the bounds of the vertical coordinate.\n    In that case, vertical coordinate units should be convertible to\n    meters.\noperator:\n    The operation. Used to determine the :class:`iris.analysis.Aggregator`\n    object used to calculate the statistics. Currently, only `mean` is\n    allowed.\nnormalize:\n    If given, do not return the statistics cube itself, but rather, the\n    input cube, normalized with the statistics cube. Can either be\n    `subtract` (statistics cube is subtracted from the input cube) or\n    `divide` (input cube is divided by the statistics cube).\n**operator_kwargs:\n    Optional keyword arguments for the :class:`iris.analysis.Aggregator`\n    object defined by `operator`.\n\nNote\n----\nThis preprocessor has been designed for oceanic variables, but it might\nbe applicable to atmospheric data as well.\n\nReturns\n-------\niris.cube.Cube\n    Collapsed cube.",
+      "parameters": [
+        {
+          "name": "operator",
+          "type": "str",
+          "required": true,
+          "default": null,
+          "description": "The operation. Used to determine the Aggregator object used to calculate the statistics. Currently, only mean is allowed."
+        },
+        {
+          "name": "normalize",
+          "type": "Literal['subtract', 'divide'] | None",
+          "required": false,
+          "default": null,
+          "description": "If given, do not return the statistics cube itself, but rather, the input cube, normalized with the statistics cube. Can either be subtract (statistics cube is subtracted from the input cube) or divide (input cube is divided by the statistics cube)."
+        }
+      ],
+      "order": 45
+    },
+    {
+      "name": "local_solar_time",
+      "category": "Time",
+      "summary": "Convert UTC time coordinate to local solar time (LST).",
+      "documentation": "Convert UTC time coordinate to local solar time (LST).\n\nThis preprocessor transforms input data with a UTC-based time coordinate to\na `local solar time (LST) <https://en.wikipedia.org/wiki/Solar_time>`__\ncoordinate. In LST, 12:00 noon is defined as the moment when the sun\nreaches its highest point in the sky. Thus, LST is mainly determined by\nlongitude of a location. LST is particularly suited to analyze diurnal\ncycles across larger regions of the globe, which would be phase-shifted\nagainst each other when using UTC time.\n\nTo transform data from UTC to LST, this function shifts data along the time\naxis based on the longitude. In addition to the `cube`'s data, this\nfunction also considers auxiliary coordinates, cell measures and ancillary\nvariables that span both the time and longitude dimension.\n\nNote\n----\nThis preprocessor preserves the temporal frequency of the input data. For\nexample, hourly input data will be transformed into hourly output data. For\nthis, a location's exact LST will be put into corresponding bins defined\nby the bounds of the input time coordinate (in this example, the bin size\nis 1 hour). If time bounds are not given or cannot be approximated (only\none time step is given), a bin size of 1 hour is assumed.\n\nLST is approximated as `UTC_time + 12*longitude/180`, where `longitude` is\nassumed to be in [-180, 180] (this function automatically calculates the\ncorrect format for the longitude). This is only an approximation since the\nexact LST also depends on the day of year due to the eccentricity of\nEarth's orbit (see `equation of time\n<https://en.wikipedia.org/wiki/Equation_of_time>`__). However, since the\ncorresponding error is ~15 min at most, this is ignored here, as most\nclimate model data has a courser temporal resolution and the time scale for\ndiurnal evolution of meteorological phenomena is usually in the order of\nhours, not minutes.\n\nParameters\n----------\ncube:\n    Input cube. Needs a 1D monotonically increasing dimensional coordinate\n    `time` (assumed to refer to UTC time) and a 1D coordinate `longitude`.\n\nReturns\n-------\nCube\n    Transformed cube of same shape as input cube with an LST coordinate\n    instead of UTC time.\n\nRaises\n------\niris.exceptions.CoordinateNotFoundError\n    Input cube does not contain valid `time` and/or `longitude` coordinate.\niris.exceptions.CoordinateMultiDimError\n    Input cube has multidimensional `longitude` coordinate.\nValueError\n    `time` coordinate of input cube is not monotonically increasing.",
+      "parameters": [],
+      "order": 46
+    },
+    {
+      "name": "amplitude",
+      "category": "Cycles",
+      "summary": "Calculate amplitude of cycles by aggregating over coordinates.",
+      "documentation": "Calculate amplitude of cycles by aggregating over coordinates.\n\nNote\n----\nThe amplitude is calculated as `peak-to-peak` amplitude (difference\nbetween maximum and minimum value of the signal). Other amplitude types\nare currently not supported.\n\nParameters\n----------\ncube : iris.cube.Cube\n    Input data.\ncoords : str or list of str\n    Coordinates over which is aggregated. For example, use ``'year'`` to\n    extract the annual cycle amplitude for each year in the data or\n    ``['day_of_year', 'year']`` to extract the diurnal cycle amplitude for\n    each individual day in the data. If the coordinates are not found in\n    ``cube``, try to add it via :mod:`iris.coord_categorisation` (at the\n    moment, this only works for the temporal coordinates ``day_of_month``,\n    ``day_of_year``, ``hour``, ``month``, ``month_fullname``,\n    ``month_number``, ``season``, ``season_number``, ``season_year``,\n    ``weekday``, ``weekday_fullname``, ``weekday_number`` or ``year``.\n\nReturns\n-------\niris.cube.Cube\n    Amplitudes.\n\nRaises\n------\niris.exceptions.CoordinateNotFoundError\n    A coordinate is not found in ``cube`` and cannot be added via\n    :mod:`iris.coord_categorisation`.",
+      "parameters": [
+        {
+          "name": "coords",
+          "type": "",
+          "required": true,
+          "default": null,
+          "description": "Coordinates over which is aggregated. For example, use ''year'' to extract the annual cycle amplitude for each year in the data or '['day_of_year', 'year']' to extract the diurnal cycle amplitude for each individual day in the data. If the coordinates are not found in 'cube', try to add it via coord_categorisation (at the moment, this only works for the temporal coordinates 'day_of_month', 'day_of_year', 'hour', 'month', 'month_fullname', 'month_number', 'season', 'season_number', 'season_year', 'weekday', 'weekday_fullname', 'weekday_number' or 'year'."
+        }
+      ],
+      "order": 47
+    },
+    {
+      "name": "zonal_statistics",
+      "category": "Area and regions",
+      "summary": "Compute zonal statistics.",
+      "documentation": "Compute zonal statistics.\n\nParameters\n----------\ncube:\n    Input cube.\noperator:\n    The operation. Used to determine the :class:`iris.analysis.Aggregator`\n    object used to calculate the statistics. Allowed options are given in\n    :ref:`this table <supported_stat_operator>`.\nnormalize:\n    If given, do not return the statistics cube itself, but rather, the\n    input cube, normalized with the statistics cube. Can either be\n    `subtract` (statistics cube is subtracted from the input cube) or\n    `divide` (input cube is divided by the statistics cube).\n**operator_kwargs:\n    Optional keyword arguments for the :class:`iris.analysis.Aggregator`\n    object defined by `operator`.\n\nReturns\n-------\niris.cube.Cube\n    Zonal statistics cube or input cube normalized by statistics cube (see\n    `normalize`).\n\nRaises\n------\nValueError\n    Error raised if computation on irregular grids is attempted.\n    Zonal statistics not yet implemented for irregular grids.",
+      "parameters": [
+        {
+          "name": "operator",
+          "type": "str",
+          "required": true,
+          "default": null,
+          "description": "The operation. Used to determine the Aggregator object used to calculate the statistics. Allowed options are given in this table."
+        },
+        {
+          "name": "normalize",
+          "type": "Literal['subtract', 'divide'] | None",
+          "required": false,
+          "default": null,
+          "description": "If given, do not return the statistics cube itself, but rather, the input cube, normalized with the statistics cube. Can either be subtract (statistics cube is subtracted from the input cube) or divide (input cube is divided by the statistics cube)."
+        }
+      ],
+      "order": 48
+    },
+    {
+      "name": "meridional_statistics",
+      "category": "Area and regions",
+      "summary": "Compute meridional statistics.",
+      "documentation": "Compute meridional statistics.\n\nParameters\n----------\ncube:\n    Input cube.\noperator:\n    The operation. Used to determine the :class:`iris.analysis.Aggregator`\n    object used to calculate the statistics. Allowed options are given in\n    :ref:`this table <supported_stat_operator>`.\nnormalize:\n    If given, do not return the statistics cube itself, but rather, the\n    input cube, normalized with the statistics cube. Can either be\n    `subtract` (statistics cube is subtracted from the input cube) or\n    `divide` (input cube is divided by the statistics cube).\n**operator_kwargs:\n    Optional keyword arguments for the :class:`iris.analysis.Aggregator`\n    object defined by `operator`.\n\nReturns\n-------\niris.cube.Cube\n    Meridional statistics cube.\n\nRaises\n------\nValueError\n    Error raised if computation on irregular grids is attempted.\n    Zonal statistics not yet implemented for irregular grids.",
+      "parameters": [
+        {
+          "name": "operator",
+          "type": "str",
+          "required": true,
+          "default": null,
+          "description": "The operation. Used to determine the Aggregator object used to calculate the statistics. Allowed options are given in this table."
+        },
+        {
+          "name": "normalize",
+          "type": "Literal['subtract', 'divide'] | None",
+          "required": false,
+          "default": null,
+          "description": "If given, do not return the statistics cube itself, but rather, the input cube, normalized with the statistics cube. Can either be subtract (statistics cube is subtracted from the input cube) or divide (input cube is divided by the statistics cube)."
+        }
+      ],
+      "order": 49
+    },
+    {
+      "name": "accumulate_coordinate",
+      "category": "Units",
+      "summary": "Weight data using the bounds from a given coordinate.",
+      "documentation": "Weight data using the bounds from a given coordinate.\n\nThe resulting cube will then have units given by\n``cube_units * coordinate_units``.\n\nParameters\n----------\ncube:\n    Data cube for the flux.\n\ncoordinate:\n    Name of the coordinate that will be used as weights.\n\nReturns\n-------\niris.cube.Cube\n    Cube with the aggregated data.\n\nRaises\n------\nValueError\n    If the coordinate is not found in the cube.\n\nNotImplementedError\n    If the coordinate is multidimensional.",
+      "parameters": [
+        {
+          "name": "coordinate",
+          "type": "str | DimCoord | AuxCoord",
+          "required": true,
+          "default": null,
+          "description": "Name of the coordinate that will be used as weights."
+        }
+      ],
+      "order": 50
+    },
+    {
+      "name": "hourly_statistics",
+      "category": "Time",
+      "summary": "Compute hourly statistics.",
+      "documentation": "Compute hourly statistics.\n\nChunks time in x hours periods and computes statistics over them.\n\nParameters\n----------\ncube:\n    Input cube.\nhours:\n    Number of hours per period. Must be a divisor of 24, i.e., (1, 2, 3, 4,\n    6, 8, 12).\noperator:\n    The operation. Used to determine the :class:`iris.analysis.Aggregator`\n    object used to calculate the statistics. Allowed options are given in\n    :ref:`this table <supported_stat_operator>`.\nkeep_group_coordinates:\n    If ``True``, keep temporal group coordinates (i.e., ``hour_group``,\n    ``day_of_year``, ``year``) in the result. If ``False``, remove them.\n**operator_kwargs:\n    Optional keyword arguments for the :class:`iris.analysis.Aggregator`\n    object defined by `operator`.\n\nReturns\n-------\niris.cube.Cube\n    Hourly statistics cube.",
+      "parameters": [
+        {
+          "name": "hours",
+          "type": "int",
+          "required": true,
+          "default": null,
+          "description": "Number of hours per period. Must be a divisor of 24, i.e., (1, 2, 3, 4, 6, 8, 12)."
+        },
+        {
+          "name": "operator",
+          "type": "str",
+          "required": false,
+          "default": "mean",
+          "description": "The operation. Used to determine the Aggregator object used to calculate the statistics. Allowed options are given in this table."
+        },
+        {
+          "name": "keep_group_coordinates",
+          "type": "bool",
+          "required": false,
+          "default": false,
+          "description": "If 'True', keep temporal group coordinates (i.e., 'hour_group', 'day_of_year', 'year') in the result. If 'False', remove them."
+        }
+      ],
+      "order": 51
+    },
+    {
+      "name": "daily_statistics",
+      "category": "Time",
+      "summary": "Compute daily statistics.",
+      "documentation": "Compute daily statistics.\n\nChunks time in daily periods and computes statistics over them;\n\nParameters\n----------\ncube:\n    Input cube.\noperator:\n    The operation. Used to determine the :class:`iris.analysis.Aggregator`\n    object used to calculate the statistics. Allowed options are given in\n    :ref:`this table <supported_stat_operator>`.\nkeep_group_coordinates:\n    If ``True``, keep temporal group coordinates (i.e., ``day_of_year``,\n    ``year``) in the result. If ``False``, remove them.\n**operator_kwargs:\n    Optional keyword arguments for the :class:`iris.analysis.Aggregator`\n    object defined by `operator`.\n\nReturns\n-------\niris.cube.Cube\n    Daily statistics cube.",
+      "parameters": [
+        {
+          "name": "operator",
+          "type": "str",
+          "required": false,
+          "default": "mean",
+          "description": "The operation. Used to determine the Aggregator object used to calculate the statistics. Allowed options are given in this table."
+        },
+        {
+          "name": "keep_group_coordinates",
+          "type": "bool",
+          "required": false,
+          "default": false,
+          "description": "If 'True', keep temporal group coordinates (i.e., 'day_of_year', 'year') in the result. If 'False', remove them."
+        }
+      ],
+      "order": 52
+    },
+    {
+      "name": "monthly_statistics",
+      "category": "Time",
+      "summary": "Compute monthly statistics.",
+      "documentation": "Compute monthly statistics.\n\nChunks time in monthly periods and computes statistics over them;\n\nParameters\n----------\ncube:\n    Input cube.\noperator:\n    The operation. Used to determine the :class:`iris.analysis.Aggregator`\n    object used to calculate the statistics. Allowed options are given in\n    :ref:`this table <supported_stat_operator>`.\nkeep_group_coordinates:\n    If ``True``, keep temporal group coordinates (i.e., ``month_number``,\n    ``year``) in the result. If ``False``, remove them.\n**operator_kwargs:\n    Optional keyword arguments for the :class:`iris.analysis.Aggregator`\n    object defined by `operator`.\n\nReturns\n-------\niris.cube.Cube\n    Monthly statistics cube.",
+      "parameters": [
+        {
+          "name": "operator",
+          "type": "str",
+          "required": false,
+          "default": "mean",
+          "description": "The operation. Used to determine the Aggregator object used to calculate the statistics. Allowed options are given in this table."
+        },
+        {
+          "name": "keep_group_coordinates",
+          "type": "bool",
+          "required": false,
+          "default": false,
+          "description": "If 'True', keep temporal group coordinates (i.e., 'month_number', 'year') in the result. If 'False', remove them."
+        }
+      ],
+      "order": 53
+    },
+    {
+      "name": "seasonal_statistics",
+      "category": "Time",
+      "summary": "Compute seasonal statistics.",
+      "documentation": "Compute seasonal statistics.\n\nChunks time seasons and computes statistics over them.\n\nParameters\n----------\ncube:\n    Input cube.\noperator:\n    The operation. Used to determine the :class:`iris.analysis.Aggregator`\n    object used to calculate the statistics. Allowed options are given in\n    :ref:`this table <supported_stat_operator>`.\nseasons:\n    Seasons to build. Available: ('DJF', 'MAM', 'JJA', SON') (default)\n    and all sequentially correct combinations holding every month\n    of a year: e.g. ('JJAS','ONDJFMAM'), or less in case of prior season\n    extraction.\nkeep_group_coordinates:\n    If ``True``, keep temporal group coordinates (i.e., ``clim_season``,\n    ``season_year``) in the result. If ``False``, remove them.\n**operator_kwargs:\n    Optional keyword arguments for the :class:`iris.analysis.Aggregator`\n    object defined by `operator`.\n\nReturns\n-------\niris.cube.Cube\n    Seasonal statistic cube.",
+      "parameters": [
+        {
+          "name": "operator",
+          "type": "str",
+          "required": false,
+          "default": "mean",
+          "description": "The operation. Used to determine the Aggregator object used to calculate the statistics. Allowed options are given in this table."
+        },
+        {
+          "name": "seasons",
+          "type": "Iterable[str]",
+          "required": false,
+          "default": [
+            "DJF",
+            "MAM",
+            "JJA",
+            "SON"
+          ],
+          "description": "Seasons to build. Available: ('DJF', 'MAM', 'JJA', SON') (default) and all sequentially correct combinations holding every month of a year: e.g. ('JJAS','ONDJFMAM'), or less in case of prior season extraction."
+        },
+        {
+          "name": "keep_group_coordinates",
+          "type": "bool",
+          "required": false,
+          "default": false,
+          "description": "If 'True', keep temporal group coordinates (i.e., 'clim_season', 'season_year') in the result. If 'False', remove them."
+        }
+      ],
+      "order": 54
+    },
+    {
+      "name": "annual_statistics",
+      "category": "Time",
+      "summary": "Compute annual statistics.",
+      "documentation": "Compute annual statistics.\n\nNote that this function does not weight the annual mean if\nuneven time periods are present. Ie, all data inside the year\nare treated equally.\n\nParameters\n----------\ncube:\n    Input cube.\noperator:\n    The operation. Used to determine the :class:`iris.analysis.Aggregator`\n    object used to calculate the statistics. Allowed options are given in\n    :ref:`this table <supported_stat_operator>`.\nkeep_group_coordinates:\n    If ``True``, keep temporal group coordinates (i.e., ``year``) in the\n    result. If ``False``, remove them.\n**operator_kwargs:\n    Optional keyword arguments for the :class:`iris.analysis.Aggregator`\n    object defined by `operator`.\n\nReturns\n-------\niris.cube.Cube\n    Annual statistics cube.",
+      "parameters": [
+        {
+          "name": "operator",
+          "type": "str",
+          "required": false,
+          "default": "mean",
+          "description": "The operation. Used to determine the Aggregator object used to calculate the statistics. Allowed options are given in this table."
+        },
+        {
+          "name": "keep_group_coordinates",
+          "type": "bool",
+          "required": false,
+          "default": false,
+          "description": "If 'True', keep temporal group coordinates (i.e., 'year') in the result. If 'False', remove them."
+        }
+      ],
+      "order": 55
+    },
+    {
+      "name": "decadal_statistics",
+      "category": "Time",
+      "summary": "Compute decadal statistics.",
+      "documentation": "Compute decadal statistics.\n\nNote that this function does not weight the decadal mean if\nuneven time periods are present. Ie, all data inside the decade\nare treated equally.\n\nParameters\n----------\ncube:\n    Input cube.\noperator:\n    The operation. Used to determine the :class:`iris.analysis.Aggregator`\n    object used to calculate the statistics. Allowed options are given in\n    :ref:`this table <supported_stat_operator>`.\nkeep_group_coordinates:\n    If ``True``, keep temporal group coordinates (i.e., ``decade``) in the\n    result. If ``False``, remove them.\n**operator_kwargs:\n    Optional keyword arguments for the :class:`iris.analysis.Aggregator`\n    object defined by `operator`.\n\nReturns\n-------\niris.cube.Cube\n    Decadal statistics cube.",
+      "parameters": [
+        {
+          "name": "operator",
+          "type": "str",
+          "required": false,
+          "default": "mean",
+          "description": "The operation. Used to determine the Aggregator object used to calculate the statistics. Allowed options are given in this table."
+        },
+        {
+          "name": "keep_group_coordinates",
+          "type": "bool",
+          "required": false,
+          "default": false,
+          "description": "If 'True', keep temporal group coordinates (i.e., 'decade') in the result. If 'False', remove them."
+        }
+      ],
+      "order": 56
+    },
+    {
+      "name": "climate_statistics",
+      "category": "Time",
+      "summary": "Compute climate statistics with the specified granularity.",
+      "documentation": "Compute climate statistics with the specified granularity.\n\nComputes statistics for the whole dataset. It is possible to get them for\nthe full period or with the data grouped by hour, day, month or season.\n\nNote\n----\nThe `mean`, `sum` and `rms` operations over the `full` period are weighted\nby the time coordinate, i.e., the length of the time intervals. For `sum`,\nthe units of the resulting cube will be multiplied by corresponding time\nunits (e.g., days).\n\nIf a period other than `full` is used, time points will be put into bins,\nwhich may shift existing time points. For example, for `period=hourly`, a\ntime point at 01:30h will be moved to the corresponding full hour (01:00h).\n\nParameters\n----------\ncube:\n    Input cube.\noperator:\n    The operation. Used to determine the :class:`iris.analysis.Aggregator`\n    object used to calculate the statistics. Allowed options are given in\n    :ref:`this table <supported_stat_operator>`.\nperiod:\n    Period to compute the statistic over. Available periods: `full`,\n    `season`, `seasonal`, `monthly`, `month`, `mon`, `daily`, `day`,\n    `hourly`, `hour`, `hr`.\nseasons:\n    Seasons to use if needed. Defaults to ('DJF', 'MAM', 'JJA', 'SON').\n**operator_kwargs:\n    Optional keyword arguments for the :class:`iris.analysis.Aggregator`\n    object defined by `operator`.\n\nReturns\n-------\niris.cube.Cube\n    Climate statistics cube.",
+      "parameters": [
+        {
+          "name": "operator",
+          "type": "str",
+          "required": false,
+          "default": "mean",
+          "description": "The operation. Used to determine the Aggregator object used to calculate the statistics. Allowed options are given in this table."
+        },
+        {
+          "name": "period",
+          "type": "str",
+          "required": false,
+          "default": "full",
+          "description": "Period to compute the statistic over. Available periods: full, season, seasonal, monthly, month, mon, daily, day, hourly, hour, hr."
+        },
+        {
+          "name": "seasons",
+          "type": "Iterable[str]",
+          "required": false,
+          "default": [
+            "DJF",
+            "MAM",
+            "JJA",
+            "SON"
+          ],
+          "description": "Seasons to use if needed. Defaults to ('DJF', 'MAM', 'JJA', 'SON')."
+        }
+      ],
+      "order": 57
+    },
+    {
+      "name": "anomalies",
+      "category": "Time",
+      "summary": "Compute anomalies using a mean with the specified granularity.",
+      "documentation": "Compute anomalies using a mean with the specified granularity.\n\nComputes anomalies based on hourly, daily, monthly, seasonal or yearly\nmeans for the full available period.\n\nParameters\n----------\ncube:\n    Input cube.\nperiod:\n    Period to compute the statistic over. Available periods: `full`,\n    `season`, `seasonal`, `monthly`, `month`, `mon`, `daily`, `day`,\n    `hourly`, `hour`, `hr`.\nreference: optional\n    Period of time to use a reference, as needed for the\n    :func:`~esmvalcore.preprocessor.extract_time` preprocessor function.\n    If ``None``, all available data is used as a reference.\nrelative: optional\n    If ``True`` relative anomalies are calculated.\nstandardize: optional\n    If ``True`` standardized anomalies are calculated.\nseasons: optional\n    Seasons to use if needed. Defaults to ('DJF', 'MAM', 'JJA', 'SON').\n\nReturns\n-------\niris.cube.Cube\n    Anomalies cube.",
+      "parameters": [
+        {
+          "name": "period",
+          "type": "str",
+          "required": true,
+          "default": null,
+          "description": "Period to compute the statistic over. Available periods: full, season, seasonal, monthly, month, mon, daily, day, hourly, hour, hr."
+        },
+        {
+          "name": "reference",
+          "type": "dict | None",
+          "required": false,
+          "default": null,
+          "description": "Period of time to use a reference, as needed for the extract_time preprocessor function. If 'None', all available data is used as a reference."
+        },
+        {
+          "name": "standardize",
+          "type": "bool",
+          "required": false,
+          "default": false,
+          "description": "If 'True' standardized anomalies are calculated."
+        },
+        {
+          "name": "relative",
+          "type": "bool",
+          "required": false,
+          "default": false,
+          "description": "If 'True' relative anomalies are calculated."
+        },
+        {
+          "name": "seasons",
+          "type": "Iterable[str]",
+          "required": false,
+          "default": [
+            "DJF",
+            "MAM",
+            "JJA",
+            "SON"
+          ],
+          "description": "Seasons to use if needed. Defaults to ('DJF', 'MAM', 'JJA', 'SON')."
+        }
+      ],
+      "order": 58
+    },
+    {
+      "name": "regrid_time",
+      "category": "Time",
+      "summary": "Align time coordinate for cubes.",
+      "documentation": "Align time coordinate for cubes.\n\nSets datetimes to common values:\n\n* Decadal data (e.g., ``frequency='dec'``): 1 January 00:00:00 for the\n  given year. Example: 1 January 2005 00:00:00 for given year 2005 (decade\n  2000-2010).\n* Yearly data (e.g., ``frequency='yr'``): 1 July 00:00:00 for each year.\n  Example: 1 July 1993 00:00:00 for the year 1993.\n* Monthly data (e.g., ``frequency='mon'``): 15th day 00:00:00 for each\n  month. Example: 15 October 1993 00:00:00 for the month October 1993.\n* Daily data (e.g., ``frequency='day'``): 12:00:00 for each day. Example:\n  14 March 1996 12:00:00 for the day 14 March 1996.\n* `n`-hourly data where `n` is a divisor of 24\n  (e.g., ``frequency='3hr'``): center of each time interval. Example:\n  03:00:00 for interval 00:00:00-06:00:00 (6-hourly data), 16:30:00 for\n  interval 15:00:00-18:00:00 (3-hourly data), or 09:30:00 for interval\n  09:00:00-10:00:00 (hourly data).\n\nThe corresponding time bounds will be set according to the rules described\nin :func:`esmvalcore.cmor.fixes.get_time_bounds`. The data type of the new\ntime coordinate will be set to `float64` (CMOR default for coordinates).\nPotential auxiliary time coordinates (e.g., `day_of_year`) are also changed\nif present.\n\nThis function does not alter the data in any way.\n\nNote\n----\nBy default, this will not change the calendar of the input time coordinate.\nFor decadal, yearly, and monthly data, it is possible to change the\ncalendar using the `calendar` argument. Be aware that changing the calendar\nmight introduce (small) errors to your data, especially for extensive\nquantities (those that depend on the period length).\n\nParameters\n----------\ncube:\n    Input cube. This input cube will not be modified.\nfrequency:\n    Data frequency. Allowed are\n\n    * Decadal data (`frequency` must include `dec`, e.g., `dec`)\n    * Yearly data (`frequency` must include `yr`, e.g., `yrPt`)\n    * Monthly data (`frequency` must include `mon`, e.g., `monC`)\n    * Daily data (`frequency` must include `day`, e.g., `day`)\n    * `n`-hourly data, where `n` must be a divisor of 24 (`frequency` must\n      include `nhr`, e.g., `6hrPt`)\ncalendar:\n    If given, transform the calendar to the one specified (examples:\n    `standard`, `365_day`, etc.). This only works for decadal, yearly and\n    monthly data, and will raise an error for other frequencies. If not\n    set, the calendar will not be changed.\nunits:\n    Reference time units used if the calendar of the data is changed.\n    Ignored if `calendar` is not set.\n\nReturns\n-------\niris.cube.Cube\n    Cube with converted time coordinate.\n\nRaises\n------\nNotImplementedError\n    An invalid `frequency` is given or `calendar` is set for a\n    non-supported frequency.",
+      "parameters": [
+        {
+          "name": "frequency",
+          "type": "str",
+          "required": true,
+          "default": null,
+          "description": "Data frequency. Allowed are * Decadal data (frequency must include dec, e.g., dec) * Yearly data (frequency must include yr, e.g., yrPt) * Monthly data (frequency must include mon, e.g., monC) * Daily data (frequency must include day, e.g., day) * n-hourly data, where n must be a divisor of 24 (frequency must include nhr, e.g., 6hrPt)"
+        },
+        {
+          "name": "calendar",
+          "type": "str | None",
+          "required": false,
+          "default": null,
+          "description": "If given, transform the calendar to the one specified (examples: standard, 365_day, etc.). This only works for decadal, yearly and monthly data, and will raise an error for other frequencies. If not set, the calendar will not be changed."
+        },
+        {
+          "name": "units",
+          "type": "str",
+          "required": false,
+          "default": "days since 1850-01-01 00:00:00",
+          "description": "Reference time units used if the calendar of the data is changed. Ignored if calendar is not set."
+        }
+      ],
+      "order": 59
+    },
+    {
+      "name": "timeseries_filter",
+      "category": "Time",
+      "summary": "Apply a timeseries filter.",
+      "documentation": "Apply a timeseries filter.\n\nMethod borrowed from `iris example\n<https://scitools-iris.readthedocs.io/en/latest/generated/gallery/general/plot_SOI_filtering.html?highlight=running%20mean>`_\n\nApply each filter using the rolling_window method used with the weights\nkeyword argument. A weighted sum is required because the magnitude of\nthe weights are just as important as their relative sizes.\n\nSee also the iris rolling window :obj:`iris.cube.Cube.rolling_window`.\n\nParameters\n----------\ncube:\n    Input cube.\nwindow:\n    The length of the filter window (in units of cube time coordinate).\nspan:\n    Number of months/days (depending on data frequency) on which\n    weights should be computed e.g. 2-yearly: span = 24 (2 x 12 months).\n    Span should have same units as cube time coordinate.\nfilter_type: optional\n    Type of filter to be applied; default 'lowpass'.\n    Available types: 'lowpass'.\nfilter_stats: optional\n    Type of statistic to aggregate on the rolling window; default: `sum`.\n    Used to determine the :class:`iris.analysis.Aggregator` object used for\n    aggregation. Allowed options are given in :ref:`this table\n    <supported_stat_operator>`.\n**operator_kwargs:\n    Optional keyword arguments for the :class:`iris.analysis.Aggregator`\n    object defined by `filter_stats`.\n\nReturns\n-------\niris.cube.Cube\n    Cube time-filtered using 'rolling_window'.\n\nRaises\n------\niris.exceptions.CoordinateNotFoundError:\n    Cube does not have time coordinate.\nNotImplementedError:\n    `filter_type` is not implemented.",
+      "parameters": [
+        {
+          "name": "window",
+          "type": "int",
+          "required": true,
+          "default": null,
+          "description": "The length of the filter window (in units of cube time coordinate)."
+        },
+        {
+          "name": "span",
+          "type": "int",
+          "required": true,
+          "default": null,
+          "description": "Number of months/days (depending on data frequency) on which weights should be computed e.g. 2-yearly: span = 24 (2 x 12 months). Span should have same units as cube time coordinate."
+        },
+        {
+          "name": "filter_type",
+          "type": "str",
+          "required": false,
+          "default": "lowpass",
+          "description": "Type of filter to be applied; default 'lowpass'. Available types: 'lowpass'."
+        },
+        {
+          "name": "filter_stats",
+          "type": "str",
+          "required": false,
+          "default": "sum",
+          "description": "Type of statistic to aggregate on the rolling window; default: sum. Used to determine the Aggregator object used for aggregation. Allowed options are given in this table."
+        }
+      ],
+      "order": 60
+    },
+    {
+      "name": "linear_trend",
+      "category": "Trends",
+      "summary": "Calculate linear trend of data along a given coordinate.",
+      "documentation": "Calculate linear trend of data along a given coordinate.\n\nThe linear trend is defined as the slope of an ordinary linear regression.\n\nParameters\n----------\ncube : iris.cube.Cube\n    Input data.\ncoordinate : str, optional (default: 'time')\n    Dimensional coordinate over which the trend is calculated.\n\nReturns\n-------\niris.cube.Cube\n    Trends.\n\nRaises\n------\niris.exceptions.CoordinateNotFoundError\n    The dimensional coordinate with the name ``coordinate`` is not found in\n    ``cube``.",
+      "parameters": [
+        {
+          "name": "coordinate",
+          "type": "",
+          "required": false,
+          "default": "time",
+          "description": "Dimensional coordinate over which the trend is calculated."
+        }
+      ],
+      "order": 61
+    },
+    {
+      "name": "linear_trend_stderr",
+      "category": "Trends",
+      "summary": "Calculate standard error of linear trend along a given coordinate.",
+      "documentation": "Calculate standard error of linear trend along a given coordinate.\n\nThis gives the standard error (not confidence intervals!) of the trend\ndefined as the standard error of the estimated slope of an ordinary linear\nregression.\n\nParameters\n----------\ncube : iris.cube.Cube\n    Input data.\ncoordinate : str, optional (default: 'time')\n    Dimensional coordinate over which the standard error of the trend is\n    calculated.\n\nReturns\n-------\niris.cube.Cube\n    Standard errors of trends.\n\nRaises\n------\niris.exceptions.CoordinateNotFoundError\n    The dimensional coordinate with the name ``coordinate`` is not found in\n    ``cube``.",
+      "parameters": [
+        {
+          "name": "coordinate",
+          "type": "",
+          "required": false,
+          "default": "time",
+          "description": "Dimensional coordinate over which the standard error of the trend is calculated."
+        }
+      ],
+      "order": 62
+    },
+    {
+      "name": "convert_units",
+      "category": "Units",
+      "summary": "Convert the units of a cube to new ones (in-place).",
+      "documentation": "Convert the units of a cube to new ones (in-place).\n\nNote\n----\nAllows special unit conversions which transforms one quantity to another\n(physically related) quantity, which may also change the input cube's\n:attr:`~iris.cube.Cube.standard_name`. These quantities are identified via\ntheir ``standard_name`` and their ``units`` (units convertible to the ones\ndefined are also supported). For example, this enables conversions between\nprecipitation fluxes measured in ``kg m-2 s-1`` and precipitation rates\nmeasured in ``mm day-1`` (and vice versa).\n\nCurrently, the following special conversions are supported:\n\n* ``precipitation_flux`` (``kg m-2 s-1``) --\n  ``lwe_precipitation_rate`` (``mm day-1``)\n* ``water_evaporation_flux`` (``kg m-2 s-1``) --\n  ``lwe_water_evaporation_rate`` (``mm day-1``)\n* ``water_potential_evaporation_flux`` (``kg m-2 s-1``) --\n  ``None`` (``mm day-1``)\n* ``water_evapotranspiration_flux`` (``kg m-2 s-1``) --\n  ``None`` (``mm day-1``)\n* ``equivalent_thickness_at_stp_of_atmosphere_ozone_content`` (``m``) --\n  ``equivalent_thickness_at_stp_of_atmosphere_ozone_content`` (``DU``)\n* ``surface_air_pressure`` (``Pa``) --\n  ``atmosphere_mass_of_air_per_unit_area`` (``kg m-2``)\n\nNames in the list correspond to ``standard_names`` of the input data.\nConversions are allowed from each quantity to any other quantity given in a\nbullet point. The corresponding target quantity is inferred from the\ndesired target units. In addition, any other units convertible to the ones\ngiven are also supported (e.g., instead of ``mm day-1``, ``m s-1`` is also\nsupported).\n\nNote that for precipitation and evaporation variables, a water density of\n``1000 kg m-3`` is assumed.\n\nParameters\n----------\ncube:\n    Input cube (modified in place).\nunits:\n    New units.\n\nReturns\n-------\niris.cube.Cube\n    Converted cube. Just returned for convenience; input cube is modified\n    in place.\n\nRaises\n------\niris.exceptions.UnitConversionError\n    Old units are unknown.\nValueError\n    Old units are not convertible to new units.",
+      "parameters": [
+        {
+          "name": "units",
+          "type": "str | Unit",
+          "required": true,
+          "default": null,
+          "description": "New units."
+        }
+      ],
+      "order": 63
+    },
+    {
+      "name": "histogram",
+      "category": "Other",
+      "summary": "Calculate histogram.",
+      "documentation": "Calculate histogram.\n\nVery similar to :func:`numpy.histogram`, but calculates histogram only over\nthe given coordinates.\n\nHandles lazy data and masked data.\n\nParameters\n----------\ncube:\n    Input cube.\ncoords:\n    Coordinates over which the histogram is calculated. If ``None``,\n    calculate the histogram over all coordinates, which results in a scalar\n    cube.\nbins:\n    If `bins` is an :obj:`int`, it defines the number of equal-width bins\n    in the given `bin_range`. If `bins` is a sequence, it defines a\n    monotonically increasing array of bin edges, including the rightmost\n    edge, allowing for non-uniform bin widths.\nbin_range:\n    The lower and upper range of the bins. If ``None``, `bin_range` is\n    simply (``cube.core_data().min(), cube.core_data().max()``). Values\n    outside the range are ignored. The first element of the range must be\n    less than or equal to the second. `bin_range` affects the automatic bin\n    computation as well if `bins` is an :obj:`int` (see description for\n    `bins` above).\nweights:\n    Weights for the histogram calculation. Each value in the input data\n    only contributes its associated weight towards the bin count (instead\n    of 1). Weights are normalized before entering the calculation if\n    `normalization` is ``'integral'`` or ``'sum'``. Can be an array of the\n    same shape as the input data, ``False`` or ``None`` (no weighting), or\n    ``True``. In the latter case, weighting will depend on `coords`, and\n    the following coordinates will trigger weighting: `time` (will use\n    lengths of time intervals as weights) and `latitude` (will use cell\n    area weights). Time weights are always calculated from the input data.\n    Area weights can be given as supplementary variables to the recipe\n    (`areacella` or `areacello`, see :ref:`supplementary_variables`) or\n    calculated from the input data (this only works for regular grids). By\n    default, **NO** supplementary variables will be used; they need to be\n    explicitly requested in the recipe.\nnormalization:\n    If ``None``, the result will contain the number of samples in each bin.\n    If ``'integral'``, the result is the value of the probability `density`\n    function at the bin, normalized such that the integral over the range\n    is 1. If ``'sum'``, the result is the value of the probability\n    `mass` function at the bin, normalized such that the sum over\n    the range is 1. Normalization will be applied across `coords`, not the\n    entire cube.\n\nReturns\n-------\nCube\n    Histogram cube. The shape of this cube will be `(x1, x2, ..., n_bins)`,\n    where `xi` are the dimensions of the input cube not appearing in\n    `coords` and `n_bins` is the number of bins.\n\nRaises\n------\nTypeError\n    Invalid `bin` type given\nValueError\n    Invalid `normalization` or `bin_range` given or `bin_range` is ``None``\n    and data is fully masked.\niris.exceptions.CoordinateNotFoundError\n    A given coordinate of ``coords`` is not found in ``cube``.\niris.exceptions.CoordinateNotFoundError\n    `longitude` is not found in cube if ``weights=True``, `latitude` is in\n    ``coords``, and no `cell_area` is given as\n    :ref:`supplementary_variables`.",
+      "parameters": [
+        {
+          "name": "coords",
+          "type": "Iterable[Coord] | Iterable[str] | None",
+          "required": false,
+          "default": null,
+          "description": "Coordinates over which the histogram is calculated. If 'None', calculate the histogram over all coordinates, which results in a scalar cube."
+        },
+        {
+          "name": "bins",
+          "type": "int | Sequence[float]",
+          "required": false,
+          "default": 10,
+          "description": "If bins is an int, it defines the number of equal-width bins in the given bin_range. If bins is a sequence, it defines a monotonically increasing array of bin edges, including the rightmost edge, allowing for non-uniform bin widths."
+        },
+        {
+          "name": "bin_range",
+          "type": "tuple[float, float] | None",
+          "required": false,
+          "default": null,
+          "description": "The lower and upper range of the bins. If 'None', bin_range is simply ('cube.core_data().min(), cube.core_data().max()'). Values outside the range are ignored. The first element of the range must be less than or equal to the second. bin_range affects the automatic bin computation as well if bins is an int (see description for bins above)."
+        },
+        {
+          "name": "weights",
+          "type": "np.ndarray | da.Array | bool | None",
+          "required": false,
+          "default": null,
+          "description": "Weights for the histogram calculation. Each value in the input data only contributes its associated weight towards the bin count (instead of 1). Weights are normalized before entering the calculation if normalization is ''integral'' or ''sum''. Can be an array of the same shape as the input data, 'False' or 'None' (no weighting), or 'True'. In the latter case, weighting will depend on coords, and the following coordinates will trigger weighting: time (will use lengths of time intervals as weights) and latitude (will use cell area weights). Time weights are always calculated from the input data. Area weights can be given as supplementary variables to the recipe (areacella or areacello, see supplementary_variables) or calculated from the input data (this only works for regular grids). By default, **NO** supplementary variables will be used; they need to be explicitly requested in the recipe."
+        },
+        {
+          "name": "normalization",
+          "type": "Literal['sum', 'integral'] | None",
+          "required": false,
+          "default": null,
+          "description": "If 'None', the result will contain the number of samples in each bin. If ''integral'', the result is the value of the probability density function at the bin, normalized such that the integral over the range is 1. If ''sum'', the result is the value of the probability mass function at the bin, normalized such that the sum over the range is 1. Normalization will be applied across coords, not the entire cube."
+        }
+      ],
+      "order": 64
+    },
+    {
+      "name": "ensemble_statistics",
+      "category": "Multi-model",
+      "summary": "Compute ensemble statistics.",
+      "documentation": "Compute ensemble statistics.\n\nAn ensemble grouping is performed on the input products (using the\n`ensemble` facet of input datasets). The statistics are then computed\ncalling :func:`esmvalcore.preprocessor.multi_model_statistics` with\nappropriate groups.\n\nParameters\n----------\nproducts:\n    Cubes (or products) over which the statistics will be computed.\nstatistics:\n    Statistical operations to be computed, e.g., ``['mean', 'median']``.\n    For some statistics like percentiles, it is also possible to pass\n    additional keyword arguments, e.g., ``[{'operator': 'percentile',\n    'percent': 20}]``. All supported options are are given in\n    :ref:`this table <supported_stat_operator>`.\noutput_products:\n    For internal use only. A dict with statistics names as keys and\n    preprocessorfiles as values. If products are passed as input, the\n    statistics cubes will be assigned to these output products.\nspan:\n    Overlap or full; if overlap, statitstics are computed on common time-\n    span; if full, statistics are computed on full time spans, ignoring\n    missing data.\nignore_scalar_coords:\n    If True, remove any scalar coordinate in the input datasets before\n    merging the input cubes into the multi-dataset cube. The resulting\n    multi-dataset cube will have no scalar coordinates (the actual input\n    datasets will remain unchanged). If False, scalar coordinates will\n    remain in the input datasets, which might lead to merge conflicts in\n    case the input datasets have different scalar coordinates.\n\nReturns\n-------\ndict | set\n    A :obj:`dict` of cubes or :obj:`set` of `output_products` depending on\n    the type of `products`.\n\nSee Also\n--------\n:func:`esmvalcore.preprocessor.multi_model_statistics` for\nthe full description of the core statistics function.",
+      "parameters": [
+        {
+          "name": "statistics",
+          "type": "list[str | dict]",
+          "required": true,
+          "default": null,
+          "description": "Statistical operations to be computed, e.g., '['mean', 'median']'. For some statistics like percentiles, it is also possible to pass additional keyword arguments, e.g., '[{'operator': 'percentile', 'percent': 20}]'. All supported options are are given in this table."
+        },
+        {
+          "name": "output_products",
+          "type": "dict[str, PreprocessorFile] | None",
+          "required": true,
+          "default": null,
+          "description": "For internal use only. A dict with statistics names as keys and preprocessorfiles as values. If products are passed as input, the statistics cubes will be assigned to these output products."
+        },
+        {
+          "name": "span",
+          "type": "str",
+          "required": false,
+          "default": "overlap",
+          "description": "Overlap or full; if overlap, statitstics are computed on common time- span; if full, statistics are computed on full time spans, ignoring missing data."
+        },
+        {
+          "name": "ignore_scalar_coords",
+          "type": "bool",
+          "required": false,
+          "default": false,
+          "description": "If True, remove any scalar coordinate in the input datasets before merging the input cubes into the multi-dataset cube. The resulting multi-dataset cube will have no scalar coordinates (the actual input datasets will remain unchanged). If False, scalar coordinates will remain in the input datasets, which might lead to merge conflicts in case the input datasets have different scalar coordinates."
+        }
+      ],
+      "order": 65
+    },
+    {
+      "name": "multi_model_statistics",
+      "category": "Multi-model",
+      "summary": "Compute multi-model statistics.",
+      "documentation": "Compute multi-model statistics.\n\nThis function computes multi-model statistics on a list of ``products``,\nwhich can be instances of :py:class:`~iris.cube.Cube` or\n:py:class:`~esmvalcore.preprocessor.PreprocessorFile`.\nThe latter is used internally by ESMValCore to store\nworkflow and provenance information, and this option should typically be\nignored.\n\nCubes must have consistent shapes apart from a potential time dimension.\nThere are two options to combine time coordinates of different lengths, see\nthe ``span`` argument.\n\nDesired statistics need to be given as a list, e.g., ``statistics: ['mean',\n'median']``. For some statistics like percentiles, it is also possible to\npass additional keyword arguments, for example ``statistics: [{'operator':\n'percentile', 'percent': 20}]``. A full list of supported statistics is\navailable in the section on :ref:`stat_preprocs`.\n\nThis function can handle cubes with differing metadata:\n\n- Cubes with identical :meth:`~iris.coords.Coord.name` and\n  :attr:`~iris.coords.Coord.units` will get identical values for\n  :attr:`~iris.coords.Coord.standard_name`,\n  :attr:`~iris.coords.Coord.long_name`, and\n  :attr:`~iris.coords.Coord.var_name` (which will be arbitrarily set to the\n  first encountered value if different cubes have different values for\n  them).\n- :attr:`~iris.cube.Cube.attributes`: Differing attributes are deleted,\n  see :func:`iris.util.equalise_attributes`.\n- :attr:`~iris.cube.Cube.cell_methods`: All cell methods are deleted\n  prior to combining cubes.\n- :meth:`~iris.cube.Cube.cell_measures`: All cell measures are deleted\n  prior to combining cubes, see\n  :func:`esmvalcore.preprocessor.remove_fx_variables`.\n- :meth:`~iris.cube.Cube.ancillary_variables`: All ancillary variables\n  are deleted prior to combining cubes, see\n  :func:`esmvalcore.preprocessor.remove_fx_variables`.\n- :meth:`~iris.cube.Cube.coords`: Exactly identical coordinates are\n  preserved. For coordinates with equal :meth:`~iris.coords.Coord.name` and\n  :attr:`~iris.coords.Coord.units`, names are equalized,\n  :attr:`~iris.coords.Coord.attributes` deleted and\n  :attr:`~iris.coords.DimCoord.circular` is set to ``False``. For all other\n  coordinates, :attr:`~iris.coords.Coord.long_name` is removed,\n  :attr:`~iris.coords.Coord.attributes` deleted and\n  :attr:`~iris.coords.DimCoord.circular` is set to ``False``. Scalar\n  coordinates can be removed if desired by the option\n  ``ignore_scalar_coords=True``. Please note that some special scalar\n  coordinates which are expected to differ across cubes (ancillary\n  coordinates for derived coordinates like `p0` and `ptop`) are always\n  removed.\n\nNotes\n-----\nSome of the operators in :py:mod:`iris.analysis` require additional\narguments. Except for percentiles, these operators are currently not\nsupported.\n\nLazy operation is supported for all statistics, except ``median``.\n\nParameters\n----------\nproducts:\n    Cubes (or products) over which the statistics will be computed.\nspan:\n    Overlap or full; if overlap, statitstics are computed on common time-\n    span; if full, statistics are computed on full time spans, ignoring\n    missing data. This option is ignored if input cubes do not have time\n    dimensions.\nstatistics:\n    Statistical operations to be computed, e.g., ``['mean', 'median']``.\n    For some statistics like percentiles, it is also possible to pass\n    additional keyword arguments, e.g., ``[{'operator': 'percentile',\n    'percent': 20}]``. All supported options are are given in\n    :ref:`this table <supported_stat_operator>`.\noutput_products:\n    For internal use only. A dict with statistics names as keys and\n    preprocessorfiles as values. If products are passed as input, the\n    statistics cubes will be assigned to these output products.\ngroupby:\n    Group products by a given tag or attribute, e.g., ('project',\n    'dataset', 'tag1'). This is ignored if ``products`` is a list of cubes.\nkeep_input_datasets:\n    If True, the output will include the input datasets.\n    If False, only the computed statistics will be returned.\nignore_scalar_coords:\n    If True, remove any scalar coordinate in the input datasets before\n    merging the input cubes into the multi-dataset cube. The resulting\n    multi-dataset cube will have no scalar coordinates (the actual input\n    datasets will remain unchanged). If False, scalar coordinates will\n    remain in the input datasets, which might lead to merge conflicts in\n    case the input datasets have different scalar coordinates.\n\nReturns\n-------\ndict | set\n    A :obj:`dict` of cubes or :obj:`set` of `output_products` depending on\n    the type of `products`.\n\nRaises\n------\nValueError\n    If span is neither overlap nor full, or if input type is neither cubes\n    nor products.",
+      "parameters": [
+        {
+          "name": "span",
+          "type": "str",
+          "required": true,
+          "default": null,
+          "description": "Overlap or full; if overlap, statitstics are computed on common time- span; if full, statistics are computed on full time spans, ignoring missing data. This option is ignored if input cubes do not have time dimensions."
+        },
+        {
+          "name": "statistics",
+          "type": "list[str | dict]",
+          "required": true,
+          "default": null,
+          "description": "Statistical operations to be computed, e.g., '['mean', 'median']'. For some statistics like percentiles, it is also possible to pass additional keyword arguments, e.g., '[{'operator': 'percentile', 'percent': 20}]'. All supported options are are given in this table."
+        },
+        {
+          "name": "output_products",
+          "type": "dict[str, PreprocessorFile] | None",
+          "required": false,
+          "default": null,
+          "description": "For internal use only. A dict with statistics names as keys and preprocessorfiles as values. If products are passed as input, the statistics cubes will be assigned to these output products."
+        },
+        {
+          "name": "groupby",
+          "type": "tuple | None",
+          "required": false,
+          "default": null,
+          "description": "Group products by a given tag or attribute, e.g., ('project', 'dataset', 'tag1'). This is ignored if 'products' is a list of cubes."
+        },
+        {
+          "name": "keep_input_datasets",
+          "type": "bool",
+          "required": false,
+          "default": true,
+          "description": "If True, the output will include the input datasets. If False, only the computed statistics will be returned."
+        },
+        {
+          "name": "ignore_scalar_coords",
+          "type": "bool",
+          "required": false,
+          "default": false,
+          "description": "If True, remove any scalar coordinate in the input datasets before merging the input cubes into the multi-dataset cube. The resulting multi-dataset cube will have no scalar coordinates (the actual input datasets will remain unchanged). If False, scalar coordinates will remain in the input datasets, which might lead to merge conflicts in case the input datasets have different scalar coordinates."
+        }
+      ],
+      "order": 66
+    },
+    {
+      "name": "bias",
+      "category": "Reference comparison",
+      "summary": "Calculate biases relative to a reference dataset.",
+      "documentation": "Calculate biases relative to a reference dataset.\n\nThe reference dataset needs to be broadcastable to all input `products`.\nThis supports `iris' rich broadcasting abilities\n<https://scitools-iris.readthedocs.io/en/stable/userguide/cube_maths.\nhtml#calculating-a-cube-anomaly>`__. To ensure this, the preprocessors\n:func:`esmvalcore.preprocessor.regrid` and/or\n:func:`esmvalcore.preprocessor.regrid_time` might be helpful.\n\nNotes\n-----\nThe reference dataset can be specified with the `reference` argument. If\n`reference` is ``None``, exactly one input dataset in the `products` set\nneeds to have the facet ``reference_for_bias: true`` defined in the recipe.\nPlease do **not** specify the option `reference` when using this\npreprocessor function in a recipe.\n\nParameters\n----------\nproducts:\n    Input datasets/cubes for which the bias is calculated relative to a\n    reference dataset/cube.\nreference:\n    Cube which is used as reference for the bias calculation. If ``None``,\n    `products` needs to be a :obj:`set` of\n    `~esmvalcore.preprocessor.PreprocessorFile` objects and exactly one\n    dataset in `products` needs the facet ``reference_for_bias: true``. Do\n    not specify this argument in a recipe.\nbias_type:\n    Bias type that is calculated. Must be one of ``'absolute'`` (dataset -\n    ref) or ``'relative'`` ((dataset - ref) / ref).\ndenominator_mask_threshold:\n    Threshold to mask values close to zero in the denominator (i.e., the\n    reference dataset) during the calculation of relative biases. All\n    values in the reference dataset with absolute value less than the given\n    threshold are masked out. This setting is ignored when ``bias_type`` is\n    set to ``'absolute'``. Please note that for some variables with very\n    small absolute values (e.g., carbon cycle fluxes, which are usually\n    :math:`< 10^{-6}` kg m :math:`^{-2}` s :math:`^{-1}`) it is absolutely\n    essential to change the default value in order to get reasonable\n    results.\nkeep_reference_dataset:\n    If ``True``, keep the reference dataset in the output. If ``False``,\n    drop the reference dataset. Ignored if `reference` is given.\n\nReturns\n-------\nset[PreprocessorFile] | CubeList\n    Output datasets/cubes. Will be a :obj:`set` of\n    :class:`~esmvalcore.preprocessor.PreprocessorFile` objects if\n    `products` is also one, a :class:`~iris.cube.CubeList` otherwise.\n\nRaises\n------\nValueError\n    Not exactly one input datasets contains the facet ``reference_for_bias:\n    true`` if ``reference=None``; ``reference=None`` and the input products\n    are given as iterable of :class:`~iris.cube.Cube` objects;\n    ``bias_type`` is not one of ``'absolute'`` or ``'relative'``.",
+      "parameters": [
+        {
+          "name": "reference",
+          "type": "Cube | None",
+          "required": false,
+          "default": null,
+          "description": "Cube which is used as reference for the bias calculation. If 'None', products needs to be a set of ~esmvalcore.preprocessor.PreprocessorFile objects and exactly one dataset in products needs the facet 'reference_for_bias: true'. Do not specify this argument in a recipe."
+        },
+        {
+          "name": "bias_type",
+          "type": "BiasType",
+          "required": false,
+          "default": "absolute",
+          "description": "Bias type that is calculated. Must be one of ''absolute'' (dataset - ref) or ''relative'' ((dataset - ref) / ref)."
+        },
+        {
+          "name": "denominator_mask_threshold",
+          "type": "float",
+          "required": false,
+          "default": 0.001,
+          "description": "Threshold to mask values close to zero in the denominator (i.e., the reference dataset) during the calculation of relative biases. All values in the reference dataset with absolute value less than the given threshold are masked out. This setting is ignored when 'bias_type' is set to ''absolute''. Please note that for some variables with very small absolute values (e.g., carbon cycle fluxes, which are usually < 10^{-6} kg m ^{-2} s ^{-1}) it is absolutely essential to change the default value in order to get reasonable results."
+        },
+        {
+          "name": "keep_reference_dataset",
+          "type": "bool",
+          "required": false,
+          "default": false,
+          "description": "If 'True', keep the reference dataset in the output. If 'False', drop the reference dataset. Ignored if reference is given."
+        }
+      ],
+      "order": 67
+    },
+    {
+      "name": "distance_metric",
+      "category": "Reference comparison",
+      "summary": "Calculate distance metrics.",
+      "documentation": "Calculate distance metrics.\n\nAll input datasets need to have identical dimensional coordinates. This can\nfor example be ensured with the preprocessors\n:func:`esmvalcore.preprocessor.regrid` and/or\n:func:`esmvalcore.preprocessor.regrid_time`.\n\nNotes\n-----\nThis preprocessor requires a reference dataset, which can be specified with\nthe `reference` argument. If `reference` is ``None``, exactly one input\ndataset in the `products` set needs to have the facet\n``reference_for_metric: true`` defined in the recipe. Please do **not**\nspecify the option `reference` when using this preprocessor function in a\nrecipe.\n\nParameters\n----------\nproducts:\n    Input datasets/cubes for which the distance metric is calculated\n    relative to a reference dataset/cube.\nmetric:\n    Distance metric that is calculated. Must be one of\n\n    * ``'rmse'``: Unweighted root mean square error\n    * ``'weighted_rmse'``: Weighted root mean square error\n    * ``'pearsonr'``: Unweighted Pearson correlation coefficient\n    * ``'weighted_pearsonr'``: Weighted Pearson correlation coefficient\n    * ``'emd'``: Unweighted Earth mover's distance\n    * ``'weighted_emd'``: Weighted Earth mover's distance\n\n    The Earth mover's distance is also known as first Wasserstein metric\n    `W`\\ :sub:`1`.\n\n    A detailed description of these metrics can be found :ref:`here\n    <list_of_distance_metrics>`.\n\n    .. note::\n        Metrics starting with `weighted_` will calculate weighted distance\n        metrics if possible. Currently, the following `coords` (or any\n        combinations that include them) will trigger weighting: `time`\n        (will use lengths of time intervals as weights) and `latitude`\n        (will use cell area weights). Time weights are always calculated\n        from the input data. Area weights can be given as supplementary\n        variables to the recipe (`areacella` or `areacello`, see\n        :ref:`supplementary_variables`) or calculated from the input data\n        (this only works for regular grids). By default, **NO**\n        supplementary variables will be used; they need to be explicitly\n        requested in the recipe.\nreference:\n    Cube which is used as reference for the distance metric calculation. If\n    ``None``, `products` needs to be a :obj:`set` of\n    :class:`~esmvalcore.preprocessor.PreprocessorFile` objects and exactly\n    one dataset in `products` needs the facet ``reference_for_metric:\n    true``. Do not specify this argument in a recipe.\ncoords:\n    Coordinates over which the distance metric is calculated. If ``None``,\n    calculate the metric over all coordinates, which results in a scalar\n    cube.\nkeep_reference_dataset:\n    If ``True``, also calculate the distance of the reference dataset with\n    itself. If ``False``, drop the reference dataset.\n**kwargs:\n    Additional options for the metric calculation. The following keyword\n    arguments are supported:\n\n    * `rmse` and `weighted_rmse`: none.\n    * `pearsonr` and `weighted_pearsonr`: ``mdtol``, ``common_mask`` (all\n      keyword arguments are passed to :func:`iris.analysis.stats.pearsonr`,\n      see that link for more details on these arguments). Note: in contrast\n      to :func:`~iris.analysis.stats.pearsonr`, ``common_mask=True`` by\n      default.\n    * `emd` and `weighted_emd`: ``n_bins`` = number of bins used to create\n      discrete probability distribition of data before calculating the EMD\n      (:obj:`int`, default: 100).\n\nReturns\n-------\nset of esmvalcore.preprocessor.PreprocessorFile or iris.cube.CubeList\n    Output datasets/cubes. Will be a :obj:`set` of\n    :class:`~esmvalcore.preprocessor.PreprocessorFile` objects if\n    `products` is also one, a :class:`~iris.cube.CubeList` otherwise.\n\nRaises\n------\nValueError\n    Shape and coordinates of products and reference data does not match;\n    not exactly one input datasets contains the facet\n    ``reference_for_metric: true`` if ``reference=None`; ``reference=None``\n    and the input products are given as iterable of\n    :class:`~iris.cube.Cube` objects; an invalid ``metric`` has been given.\niris.exceptions.CoordinateNotFoundError\n    `longitude` is not found in cube if a weighted metric shall be\n    calculated, `latitude` is in `coords`, and no `cell_area` is given\n    as :ref:`supplementary_variables`.",
+      "parameters": [
+        {
+          "name": "metric",
+          "type": "MetricType",
+          "required": true,
+          "default": null,
+          "description": "Distance metric that is calculated. Must be one of * ''rmse'': Unweighted root mean square error * ''weighted_rmse'': Weighted root mean square error * ''pearsonr'': Unweighted Pearson correlation coefficient * ''weighted_pearsonr'': Weighted Pearson correlation coefficient * ''emd'': Unweighted Earth mover's distance * ''weighted_emd'': Weighted Earth mover's distance The Earth mover's distance is also known as first Wasserstein metric W\\ 1. A detailed description of these metrics can be found here. .. note:: Metrics starting with weighted_ will calculate weighted distance metrics if possible. Currently, the following coords (or any combinations that include them) will trigger weighting: time (will use lengths of time intervals as weights) and latitude (will use cell area weights). Time weights are always calculated from the input data. Area weights can be given as supplementary variables to the recipe (areacella or areacello, see supplementary_variables) or calculated from the input data (this only works for regular grids). By default, **NO** supplementary variables will be used; they need to be explicitly requested in the recipe."
+        },
+        {
+          "name": "reference",
+          "type": "Cube | None",
+          "required": false,
+          "default": null,
+          "description": "Cube which is used as reference for the distance metric calculation. If 'None', products needs to be a set of PreprocessorFile objects and exactly one dataset in products needs the facet 'reference_for_metric: true'. Do not specify this argument in a recipe."
+        },
+        {
+          "name": "coords",
+          "type": "Iterable[Coord] | Iterable[str] | None",
+          "required": false,
+          "default": null,
+          "description": "Coordinates over which the distance metric is calculated. If 'None', calculate the metric over all coordinates, which results in a scalar cube."
+        },
+        {
+          "name": "keep_reference_dataset",
+          "type": "bool",
+          "required": false,
+          "default": true,
+          "description": "If 'True', also calculate the distance of the reference dataset with itself. If 'False', drop the reference dataset."
+        }
+      ],
+      "order": 68
+    }
+  ],
+  "order": [
+    "fix_file",
+    "load",
+    "fix_metadata",
+    "concatenate",
+    "cmor_check_metadata",
+    "clip_timerange",
+    "fix_data",
+    "cmor_check_data",
+    "add_supplementary_variables",
+    "derive",
+    "align_metadata",
+    "extract_time",
+    "extract_season",
+    "extract_month",
+    "resample_hours",
+    "resample_time",
+    "extract_levels",
+    "extract_surface_from_atm",
+    "weighting_landsea_fraction",
+    "mask_landsea",
+    "mask_glaciated",
+    "mask_landseaice",
+    "regrid",
+    "extract_coordinate_points",
+    "extract_point",
+    "extract_location",
+    "mask_multimodel",
+    "mask_fillvalues",
+    "mask_above_threshold",
+    "mask_below_threshold",
+    "mask_inside_range",
+    "mask_outside_range",
+    "clip",
+    "rolling_window_statistics",
+    "cumulative_sum",
+    "extract_region",
+    "extract_shape",
+    "extract_volume",
+    "extract_trajectory",
+    "extract_transect",
+    "detrend",
+    "extract_named_regions",
+    "axis_statistics",
+    "depth_integration",
+    "area_statistics",
+    "volume_statistics",
+    "local_solar_time",
+    "amplitude",
+    "zonal_statistics",
+    "meridional_statistics",
+    "accumulate_coordinate",
+    "hourly_statistics",
+    "daily_statistics",
+    "monthly_statistics",
+    "seasonal_statistics",
+    "annual_statistics",
+    "decadal_statistics",
+    "climate_statistics",
+    "anomalies",
+    "regrid_time",
+    "timeseries_filter",
+    "linear_trend",
+    "linear_trend_stderr",
+    "convert_units",
+    "histogram",
+    "ensemble_statistics",
+    "multi_model_statistics",
+    "bias",
+    "distance_metric",
+    "remove_supplementary_variables",
+    "save"
+  ],
+  "initial_steps": [
+    "fix_file",
+    "load",
+    "fix_metadata",
+    "concatenate",
+    "cmor_check_metadata",
+    "clip_timerange",
+    "fix_data",
+    "cmor_check_data",
+    "add_supplementary_variables"
+  ],
+  "final_steps": [
+    "remove_supplementary_variables",
+    "save"
+  ]
+}

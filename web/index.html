@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ESMVal Studio</title>
+  <link rel="stylesheet" href="/style.css?v=esgf-search-2">
+</head>
+<body>
+  <div class="shell">
+    <header class="topbar">
+      <div class="brand"><img src="/esmvaltool-logo.png" alt="ESMValTool"><span class="brand-product">STUDIO</span></div>
+      <div class="top-actions">
+        <span id="connectionBadge" class="badge neutral">Offline editor</span>
+        <button id="newRecipeButton" class="button subtle" type="button">+ New recipe</button>
+        <button id="openFile" class="button ghost">Open YAML</button>
+        <button id="saveFile" class="button ghost">Save YAML</button>
+        <button id="runButton" class="button primary">Submit to Gadi <span>↗</span></button>
+      </div>
+    </header>
+    <div class="workspace">
+      <aside class="library panel">
+        <div class="panel-heading"><div><div class="eyebrow">EXPLORE</div><h2>Recipe library</h2></div><span id="recipeCount" class="count">0</span></div>
+        <label class="search"><span>⌕</span><input id="recipeSearch" placeholder="Search recipes" autocomplete="off"></label>
+        <label class="library-filter">Realm<select id="realmFilter" aria-label="Filter recipes by realm"><option value="">All realms</option></select></label>
+        <div id="recipeList" class="recipe-list"><p class="empty">Loading recipes…</p></div>
+        <div class="sidebar-footer"><div class="status-dot"></div><span id="libraryStatus">Checking ESMValTool collection</span></div>
+      </aside>
+
+      <main class="main panel">
+        <div class="document-bar">
+          <div class="document-head"><div class="eyebrow">WORKSPACE / RECIPE</div><h1 id="recipeTitle">Select a recipe</h1><p id="recipeDescription">Load a recipe from the library or open a local YAML file.</p></div>
+          <div class="document-controls"><span id="documentName" class="filename">No file</span><span id="dirtyMark" class="dirty" hidden>Edited</span><button id="editYamlButton" class="button subtle small-button" type="button">Edit YAML</button></div>
+        </div>
+        <div class="tabs"><button class="tab active" data-tab="pipeline">Pipeline</button><button class="tab" data-tab="builder">Preprocessor builder</button><button class="tab" data-tab="yaml">YAML editor</button><button class="tab" data-tab="runs">Runs</button><span class="tab-spacer"></span><span id="validationStatus" class="validation-status">Ready</span></div>
+        <section id="pipelineTab" class="tab-content active">
+          <div id="recipeGuide" class="recipe-guide" hidden></div>
+          <div id="recipeStory" class="recipe-story" hidden></div>
+          <div class="overview" id="overview"></div>
+          <div class="pipeline-header"><div><div class="eyebrow">RECIPE STRUCTURE</div><h2>Data to diagnostics</h2><p class="pipeline-tip">Select a card to trace its connections.</p></div><button id="validateButton" class="button subtle">Check structure</button></div>
+          <div id="pipeline" class="pipeline"><div class="empty-state">Choose a recipe to see its structure.</div></div>
+          <div id="messages" class="messages"></div>
+        </section>
+        <section id="builderTab" class="tab-content builder-tab">
+          <div class="builder-heading"><div><div class="eyebrow">ESMVALCORE</div><h2>Preprocessor builder</h2><p>Build a named profile from documented processing steps.</p></div><button id="newProfile" class="button subtle">New profile</button></div>
+          <form id="profileCreateForm" class="profile-create" hidden><label>Profile name<input id="profileCreateName" required pattern="[A-Za-z][A-Za-z0-9_-]*" placeholder="e.g. annual_mean"></label><button id="saveProfileCreate" class="button primary small-button" type="submit">Create profile</button><button id="cancelProfileCreate" class="button ghost small-button" type="button">Cancel</button><p id="profileCreateStatus" role="status"></p></form>
+          <div class="builder-toolbar"><label>Profile<select id="builderProfile"></select></label><span id="builderOrderNote"></span><label class="order-toggle"><input id="customOrder" type="checkbox"> Custom order</label></div>
+          <div class="builder-layout"><div class="builder-left"><div class="builder-subhead">PROFILE STEPS <span id="builderStepCount"></span></div><div id="builderSteps" class="builder-steps"></div><div class="builder-subhead catalogue-head">ADD A BRICK</div><input id="brickSearch" class="brick-search" placeholder="Search steps, categories, descriptions"><div id="brickList" class="brick-list"></div></div><div id="brickDetails" class="brick-details"><div class="empty-state">Select a brick to see its documentation and parameters.</div></div></div>
+        </section>
+        <section id="yamlTab" class="tab-content yaml-tab"><div class="editor-header"><strong id="yamlFileName">recipe.yml</strong><span>Changes update the pipeline as you type</span><button id="viewPipeline" class="button subtle small-button" type="button">View pipeline →</button></div><div id="yamlFeedback" class="yaml-feedback" role="status" hidden></div><textarea id="yamlEditor" spellcheck="false" aria-label="Recipe YAML"></textarea></section>
+        <section id="runsTab" class="tab-content"><div class="runs-header"><div><div class="eyebrow">EXECUTION</div><h2>Recent jobs</h2></div><button id="refreshJobs" class="button subtle">Refresh</button></div><div id="jobsList" class="jobs-list"><p class="empty">No jobs submitted yet.</p></div><div id="jobDetails" class="job-details" hidden><div class="job-details-head"><strong id="selectedJobTitle"></strong><div><button id="refreshLog" class="button subtle">Refresh log</button> <button id="cancelJob" class="button ghost" hidden>Cancel job</button></div></div><div id="selectedJobState" class="job-state"></div><div class="log-grid"><div><label>Output</label><pre id="stdoutLog"></pre></div><div><label>Errors</label><pre id="stderrLog"></pre></div></div></div></section>
+      </main>
+
+      <aside class="inspector panel"><div class="panel-heading"><div><div class="eyebrow">INSPECT</div><h2>Details</h2></div></div><div id="inspectorContent" class="inspector-content"><div class="empty-state small">Select a profile, variable, or diagnostic in the pipeline.</div></div></aside>
+    </div>
+  </div>
+  <div id="toast" class="toast" role="status"></div>
+  <div id="newRecipeModal" class="modal-backdrop" hidden>
+    <div class="modal recipe-modal" role="dialog" aria-modal="true" aria-labelledby="newRecipeTitle">
+      <div class="modal-header"><div><div class="eyebrow">START FROM SCRATCH</div><h2 id="newRecipeTitle">Build a recipe</h2></div><button id="closeNewRecipe" class="icon-button" type="button" aria-label="Close recipe builder">×</button></div>
+      <form id="newRecipeForm">
+        <div class="modal-body recipe-form-body">
+          <section class="recipe-form-section"><div class="recipe-form-heading"><span>01</span><div><h3>Describe the recipe</h3><p>Give it a clear name and purpose.</p></div></div><div class="form-grid">
+            <label class="wide">Title<input name="title" required maxlength="160" placeholder="e.g. Global temperature trends"></label>
+            <label class="wide">Description<textarea name="description" required rows="2" placeholder="What question will this recipe answer?"></textarea></label>
+            <label class="wide">Author<input name="author" required placeholder="Your name or ESMValTool author ID"></label>
+            <label class="wide">Filename<input name="filename" required pattern="recipe_[A-Za-z0-9_-]+\.ya?ml" placeholder="recipe_global_temperature.yml"></label>
+          </div></section>
+          <section class="recipe-form-section"><div class="recipe-form-heading"><span>02</span><div><h3>Choose input data</h3><p>Add one starting dataset. You can add more in the pipeline.</p></div></div><div class="esgf-wizard-search"></div><div class="form-grid">
+            <label>Dataset<input name="dataset" required placeholder="e.g. ACCESS-ESM1-5"></label>
+            <label>Project<input name="project" required placeholder="e.g. CMIP6"></label>
+            <label>Experiment <span class="optional">optional</span><input name="exp" placeholder="e.g. historical"></label>
+            <label>Ensemble <span class="optional">optional</span><input name="ensemble" placeholder="e.g. r1i1p1f1"></label>
+            <label>Grid <span class="optional">optional</span><input name="grid" placeholder="e.g. gn"></label>
+          </div></section>
+          <section class="recipe-form-section"><div class="recipe-form-heading"><span>03</span><div><h3>Set up analysis</h3><p>Start with one diagnostic and climate variable.</p></div></div><div class="form-grid">
+            <label>Diagnostic name<input name="diagnostic" required pattern="[A-Za-z][A-Za-z0-9_-]*" value="analysis"></label>
+            <label>Realm<select name="realm"><option value="">Unspecified</option><option value="atmos">Atmosphere</option><option value="ocean">Ocean</option><option value="land">Land</option><option value="seaIce">Sea ice</option><option value="atmosChem">Atmospheric chemistry</option><option value="ocnBgchem">Ocean biogeochemistry</option></select></label>
+            <label>Variable group<input name="variable" required pattern="[A-Za-z][A-Za-z0-9_-]*" value="tas"></label>
+            <label>Climate variable <span class="optional">short_name, optional</span><input name="short_name" placeholder="e.g. tas"></label>
+            <label>MIP table<input name="mip" required value="Amon" placeholder="e.g. Amon"></label>
+            <label>Script path <span class="optional">optional</span><input name="script_path" placeholder="e.g. examples/diagnostic.py"></label>
+            <label>Script name <span class="optional">optional</span><input name="script_name" placeholder="plot"></label>
+          </div><p class="recipe-form-hint">You can add preprocessor steps and further diagnostics after creating the recipe. Add a script before submitting a runnable recipe.</p></section>
+          <details class="recipe-preview"><summary>Preview recipe YAML</summary><pre id="newRecipePreview">Fill the required fields to preview the recipe.</pre></details>
+          <p id="newRecipeStatus" class="recipe-form-status" role="status"></p>
+        </div>
+        <div class="modal-footer"><button id="cancelNewRecipe" class="button ghost" type="button">Cancel</button><button id="createRecipe" class="button primary" type="submit">Create recipe →</button></div>
+      </form>
+    </div>
+  </div>
+  <div id="runModal" class="modal-backdrop" hidden>
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="runTitle">
+      <div class="modal-header"><div><div class="eyebrow">PBS SUBMISSION</div><h2 id="runTitle">Run on Gadi</h2></div><button id="closeModal" class="icon-button" aria-label="Close">×</button></div>
+      <div class="modal-body">
+        <div class="form-grid">
+          <label>SSH host <input id="host" value="gadi"></label>
+          <label>NCI project <input id="project" placeholder="e.g. ab12"></label>
+          <label>Queue <select id="queue"><option>normal</option><option>express</option><option>normalbw</option><option>expressbw</option></select></label>
+          <label>Walltime <input id="walltime" value="00:20:00" placeholder="HH:MM:SS"></label>
+          <label>CPUs <input id="ncpus" type="number" min="1" max="48" value="1"></label>
+          <label>Memory (GB) <input id="memory_gb" type="number" min="1" value="4"></label>
+          <label>Jobfs (GB) <input id="jobfs_gb" type="number" min="1" value="10"></label>
+          <label>Storage <input id="storage" placeholder="scratch/ab12+gdata/ab12"></label>
+          <label class="wide">Working directory on Gadi <input id="work_dir" placeholder="/scratch/PROJECT/USER/esmval-gui-jobs"></label>
+          <label class="wide">ESMValTool executable <input id="esmvaltool_command" value="esmvaltool" placeholder="esmvaltool or /absolute/path/bin/esmvaltool"></label>
+          <label class="wide">Environment setup command <input id="setup_command" placeholder="Optional: source /path/to/activate"></label>
+          <label class="wide">ESMValTool config directory <input id="config_dir" placeholder="Optional absolute path"></label>
+          <label class="wide">ESMValTool config file <input id="config_file" placeholder="Optional legacy config-user.yml path"></label>
+        </div>
+        <div class="remote-actions"><button id="probeButton" class="button subtle">Check Gadi connection</button><span id="probeResult"></span></div>
+        <details class="script-preview"><summary>Review PBS script</summary><pre id="pbsScript">Fill in the settings and select Preview.</pre></details>
+      </div>
+      <div class="modal-footer"><button id="previewButton" class="button ghost">Preview script</button><button id="submitButton" class="button primary">Submit job ↗</button></div>
+    </div>
+  </div>
+  <input id="fileInput" type="file" accept=".yml,.yaml,text/yaml" hidden>
+  <script src="/app.js?v=esgf-search-2" defer></script>
+</body>
+</html>

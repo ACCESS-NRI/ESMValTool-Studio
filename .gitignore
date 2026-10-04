@@ -1,0 +1,9 @@
+.venv/
+__pycache__/
+.pytest_cache/
+.esmval-gui/
+*.py[cod]
+.coverage
+.env
+.env.*
+GADI_SMOKE_TEST.md
