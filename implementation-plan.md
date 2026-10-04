@@ -1,4 +1,4 @@
-# ESMValTool GUI — Implementation Plan
+# ESMValTool Studio — Implementation Plan
 
 Companion to [specifications.md](specifications.md). This document proposes a stack,
 an architecture, and a delivery sequence.
@@ -105,7 +105,7 @@ the same question**, and browser-first answers both at once:
   Remote model the spec floats, with *no second code path*.
 - Cross-platform for free: the hard part is the Python env, which conda already solves
   on all three OSes and which users installing ESMValTool have anyway.
-- Distribution is `conda install esmvaltool-gui`, then `esmvaltool-gui` opens a browser.
+- Distribution is `conda install esmvaltool-studio`, then `esmvaltool-studio` opens a browser.
   No installers, no code signing, no notarisation, no auto-update channel.
 
 | Option | Verdict |

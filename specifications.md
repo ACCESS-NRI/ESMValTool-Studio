@@ -1,4 +1,4 @@
-# ESMValTool GUI — Concept and Specifications
+# ESMValTool Studio — Concept and Specifications
 
 ## Motivation
 

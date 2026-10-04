@@ -1,4 +1,4 @@
-# ESMVal Studio
+# ESMValTool Studio
 
 A local GUI for browsing ESMValTool recipes, building preprocessor profiles, assigning them to variables, and submitting bounded PBS jobs to Gadi over your existing SSH connection.
 

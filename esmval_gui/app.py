@@ -13,7 +13,7 @@ from . import auth, catalogue, configuration, esgf, recipes, remote, scripts_cat
 
 ROOT = Path(__file__).resolve().parent.parent
 STATE = Path(os.environ.get("ESMVAL_GUI_STATE_DIR", ROOT / ".esmval-gui"))
-app = FastAPI(title="ESMValTool GUI", docs_url="/api/docs", openapi_url="/api/openapi.json")
+app = FastAPI(title="ESMValTool Studio", docs_url="/api/docs", openapi_url="/api/openapi.json")
 
 
 @app.middleware("http")

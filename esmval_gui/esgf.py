@@ -103,7 +103,7 @@ def search_datasets(query: str, project: str, *, experiment: str = "", variable:
     if ensemble and "ensemble" in FACETS[project]:
         params[FACETS[project]["ensemble"]] = ensemble
     url = SEARCH_URL.rstrip("/") + "/?" + urlencode(params)
-    request = Request(url, headers={"Accept": "application/json", "User-Agent": "ESMValTool-GUI/1.0"})
+    request = Request(url, headers={"Accept": "application/json", "User-Agent": "ESMValTool-Studio/1.0"})
     try:
         with urlopen(request, timeout=12) as response:
             payload = json.load(response)
