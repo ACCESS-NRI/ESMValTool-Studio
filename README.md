@@ -74,6 +74,10 @@ The brick catalogue is read from a local ESMValCore source checkout or installed
 
 ## Submit to Gadi
 
+The **Configuration** tab reads `.yml` and `.yaml` ESMValTool settings from several local files, a selected local folder, or one file or directory on Gadi through your configured SSH alias. For Gadi, leave the path blank to use `ESMVALTOOL_CONFIG_DIR` or the standard user configuration location. No job is started when loading configuration. The file list shows merge order; move or remove files to inspect another order. Later files override earlier values while nested mappings merge. The view highlights project data sources, shows the merged settings and their source files, and lists overrides. Configuration text stays in browser memory and is not saved by the GUI. Values with credential-like names are masked in the view.
+
+This is a view of the **selected files**, not a claim about every effective runtime option. ESMValCore defaults, other configuration directories and command line arguments may add or override settings. To inspect the settings intended for a particular Gadi run, load the same directory or file that you enter in the submission dialog, then add any additional configuration files in their intended priority order.
+
 1. Load or open a recipe. Review and edit it in the **Pipeline** and **YAML** tabs.
 2. Select **Submit to Gadi**, then **Check Gadi connection**. The app uses your system `ssh` command and SSH config; it does not store keys or passwords. It detects the Gadi project, working directory, PBS and a registered ESMValTool conda environment when available.
 3. Set walltime, CPUs, memory, jobfs and storage. Include every `/g/data` and `/scratch` project used by the executable, recipe data and output in **Storage**. Older ESMValCore installations may require **Config file**; the Gadi probe detects an existing `config-user.yml`.

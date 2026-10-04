@@ -8,7 +8,7 @@ from fastapi import FastAPI, HTTPException, Query
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 
-from . import catalogue, esgf, recipes, remote
+from . import catalogue, configuration, esgf, recipes, remote
 
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -121,6 +121,38 @@ class ProbeInput(BaseModel):
 
 class RunInput(RecipeInput):
     settings: remote.RemoteSettings
+
+
+class ConfigFile(BaseModel):
+    name: str
+    content: str
+
+
+class ConfigInspect(BaseModel):
+    files: list[ConfigFile]
+
+
+class ConfigRemote(BaseModel):
+    host: str = "gadi"
+    path: str = ""
+
+
+@app.post("/api/config/inspect")
+def inspect_config(body: ConfigInspect):
+    try:
+        return configuration.inspect_files([item.model_dump() for item in body.files])
+    except ValueError as exc:
+        raise HTTPException(400, str(exc)) from exc
+
+
+@app.post("/api/config/remote")
+def remote_config(body: ConfigRemote):
+    try:
+        files = configuration.load_remote_files(body.host, body.path)
+        configuration.inspect_files(files)
+        return {"files": files}
+    except ValueError as exc:
+        raise HTTPException(400, str(exc)) from exc
 
 
 @app.get("/api/health")

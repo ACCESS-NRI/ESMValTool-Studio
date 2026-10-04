@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>ESMVal Studio</title>
-  <link rel="stylesheet" href="/style.css?v=esgf-search-2">
+  <link rel="stylesheet" href="/style.css?v=config-view-1">
 </head>
 <body>
   <div class="shell">
@@ -32,7 +32,7 @@
           <div class="document-head"><div class="eyebrow">WORKSPACE / RECIPE</div><h1 id="recipeTitle">Select a recipe</h1><p id="recipeDescription">Load a recipe from the library or open a local YAML file.</p></div>
           <div class="document-controls"><span id="documentName" class="filename">No file</span><span id="dirtyMark" class="dirty" hidden>Edited</span><button id="editYamlButton" class="button subtle small-button" type="button">Edit YAML</button></div>
         </div>
-        <div class="tabs"><button class="tab active" data-tab="pipeline">Pipeline</button><button class="tab" data-tab="builder">Preprocessor builder</button><button class="tab" data-tab="yaml">YAML editor</button><button class="tab" data-tab="runs">Runs</button><span class="tab-spacer"></span><span id="validationStatus" class="validation-status">Ready</span></div>
+        <div class="tabs"><button class="tab active" data-tab="pipeline">Pipeline</button><button class="tab" data-tab="builder">Preprocessor builder</button><button class="tab" data-tab="yaml">YAML editor</button><button class="tab" data-tab="config">Configuration</button><button class="tab" data-tab="runs">Runs</button><span class="tab-spacer"></span><span id="validationStatus" class="validation-status">Ready</span></div>
         <section id="pipelineTab" class="tab-content active">
           <div id="recipeGuide" class="recipe-guide" hidden></div>
           <div id="recipeStory" class="recipe-story" hidden></div>
@@ -49,6 +49,20 @@
         </section>
         <section id="yamlTab" class="tab-content yaml-tab"><div class="editor-header"><strong id="yamlFileName">recipe.yml</strong><span>Changes update the pipeline as you type</span><button id="viewPipeline" class="button subtle small-button" type="button">View pipeline →</button></div><div id="yamlFeedback" class="yaml-feedback" role="status" hidden></div><textarea id="yamlEditor" spellcheck="false" aria-label="Recipe YAML"></textarea></section>
         <section id="runsTab" class="tab-content"><div class="runs-header"><div><div class="eyebrow">EXECUTION</div><h2>Recent jobs</h2></div><button id="refreshJobs" class="button subtle">Refresh</button></div><div id="jobsList" class="jobs-list"><p class="empty">No jobs submitted yet.</p></div><div id="jobDetails" class="job-details" hidden><div class="job-details-head"><strong id="selectedJobTitle"></strong><div><button id="refreshLog" class="button subtle">Refresh log</button> <button id="cancelJob" class="button ghost" hidden>Cancel job</button></div></div><div id="selectedJobState" class="job-state"></div><div class="log-grid"><div><label>Output</label><pre id="stdoutLog"></pre></div><div><label>Errors</label><pre id="stderrLog"></pre></div></div></div></section>
+        <section id="configTab" class="tab-content config-tab">
+          <div class="config-heading"><div><div class="eyebrow">ESMVALTOOL SETTINGS</div><h2>Configuration</h2><p>Load layered YAML files to see their combined settings and where each value comes from.</p></div></div>
+          <div class="config-import">
+            <div class="config-import-actions"><button id="configOpenFiles" class="button primary" type="button">Open YAML files</button><button id="configOpenFolder" class="button subtle" type="button">Open folder</button><button id="configClear" class="button ghost" type="button">Clear</button></div>
+            <input id="configFileInput" type="file" accept=".yml,.yaml" multiple hidden><input id="configFolderInput" type="file" webkitdirectory multiple hidden>
+            <form id="configRemoteForm" class="config-remote-form"><label>SSH host<input id="configHost" value="gadi" autocomplete="off" aria-label="Gadi SSH host"></label><label>File or directory on Gadi <span class="optional">blank: standard user config</span><input id="configPath" placeholder="/home/your-user/.config/esmvaltool" aria-label="Gadi configuration path"></label><button id="configLoadRemote" class="button subtle" type="submit">Load from Gadi</button></form>
+            <p class="config-explain">Files merge in the order shown below. Later files take precedence; nested settings combine. This view includes selected files only. ESMValCore defaults and command line options may change runtime values.</p><p id="configStatus" class="config-status" role="status"></p>
+          </div>
+          <div id="configFileList" class="config-file-list"></div>
+          <div id="configOverview"></div>
+          <div id="configSources"></div>
+          <div id="configSettings"></div>
+          <div id="configOverrides"></div>
+        </section>
       </main>
 
       <aside class="inspector panel"><div class="panel-heading"><div><div class="eyebrow">INSPECT</div><h2>Details</h2></div></div><div id="inspectorContent" class="inspector-content"><div class="empty-state small">Select a profile, variable, or diagnostic in the pipeline.</div></div></aside>
@@ -115,6 +129,6 @@
     </div>
   </div>
   <input id="fileInput" type="file" accept=".yml,.yaml,text/yaml" hidden>
-  <script src="/app.js?v=esgf-search-2" defer></script>
+  <script src="/app.js?v=config-view-1" defer></script>
 </body>
 </html>

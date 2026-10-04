@@ -5,7 +5,7 @@ const variableGroup = (item) => item.name !== variableName(item) ? `Group ${item
 const variableListName = (item) => variableGroup(item) ? `${variableName(item)} (${item.name})` : variableName(item);
 const realmNames = { atmos: 'Atmosphere', atmosChem: 'Atmospheric chemistry', land: 'Land', ocean: 'Ocean', ocnBgchem: 'Ocean biogeochemistry', seaIce: 'Sea ice' };
 const realmLabel = (realm) => realmNames[realm] || realm;
-const state = { yaml: '', summary: null, name: '', libraryInfo: null, dirty: false, selected: null, jobs: [], selectedJob: null, parseTimer: null, catalogue: null, builderProfile: '', builderBrick: '', builderEditing: false, isNewRecipe: false, recipePreviewTimer: null, recipePreviewVersion: 0 };
+const state = { yaml: '', summary: null, name: '', libraryInfo: null, dirty: false, selected: null, jobs: [], selectedJob: null, parseTimer: null, catalogue: null, builderProfile: '', builderBrick: '', builderEditing: false, isNewRecipe: false, recipePreviewTimer: null, recipePreviewVersion: 0, configFiles: [], configSummary: null, configVersion: 0 };
 
 async function api(path, options = {}) {
   const response = await fetch('/api' + path, { headers: { 'Content-Type': 'application/json' }, ...options });
@@ -71,9 +71,83 @@ function toast(message, error = false) {
 }
 function setTab(name) {
   document.querySelectorAll('.tab').forEach((tab) => tab.classList.toggle('active', tab.dataset.tab === name));
-  ['pipeline', 'builder', 'yaml', 'runs'].forEach((tab) => $(tab + 'Tab').classList.toggle('active', tab === name));
+  ['pipeline', 'builder', 'yaml', 'config', 'runs'].forEach((tab) => $(tab + 'Tab').classList.toggle('active', tab === name));
   if (name === 'runs') refreshJobs();
   if (name === 'builder') renderBuilder();
+}
+function configOrigin(summary, path) {
+  return summary.origins.find((item) => JSON.stringify(item.path) === JSON.stringify(path))?.file || '';
+}
+function configSourceBadge(summary, path) {
+  const source = configOrigin(summary, path);
+  return source ? `<span class="config-source" title="Defined in ${escapeHtml(source)}">${escapeHtml(source.split('/').pop())}</span>` : '';
+}
+function configValue(value, key) {
+  if (/(password|token|secret|credential|api[_-]?key|private[_-]?key)/i.test(key)) return '<span class="config-redacted">•••••• (hidden)</span>';
+  if (value === null) return '<code>null</code>';
+  if (Array.isArray(value)) return `<code>${escapeHtml(JSON.stringify(value))}</code>`;
+  return `<code>${escapeHtml(String(value))}</code>`;
+}
+function configTree(value, path, summary) {
+  if (value && typeof value === 'object' && !Array.isArray(value)) {
+    return `<div class="config-tree">${Object.entries(value).map(([key, child]) => {
+      const next = [...path, key];
+      if (/(password|token|secret|credential|api[_-]?key|private[_-]?key)/i.test(key)) return `<div class="config-leaf"><span class="config-leaf-key">${escapeHtml(key)}</span><span class="config-leaf-value"><span class="config-redacted">•••••• (hidden)</span></span>${configSourceBadge(summary, next)}</div>`;
+      if (child && typeof child === 'object' && !Array.isArray(child)) {
+        return `<details class="config-branch"><summary><strong>${escapeHtml(key)}</strong><span class="config-child-count">${Object.keys(child).length} settings</span></summary>${configTree(child, next, summary)}</details>`;
+      }
+      return `<div class="config-leaf"><span class="config-leaf-key">${escapeHtml(key)}</span><span class="config-leaf-value">${configValue(child, key)}</span>${configSourceBadge(summary, next)}</div>`;
+    }).join('')}</div>`;
+  }
+  return `<div class="config-leaf">${configValue(value, path.at(-1) || '')}${configSourceBadge(summary, path)}</div>`;
+}
+function renderConfig() {
+  const files = state.configFiles;
+  $('configFileList').innerHTML = files.length ? `<div class="config-section-label">MERGE ORDER <span>low → high priority</span></div>${files.map((file, index) => `<div class="config-file"><span class="config-file-index">${index + 1}</span><div class="config-file-name" title="${escapeHtml(file.name)}"><strong>${escapeHtml(file.name)}</strong><small>${index === files.length - 1 ? 'Highest priority' : `${Math.round(file.content.length / 1024)} KB`}</small></div><div class="config-file-actions"><button data-config-action="up" data-index="${index}" type="button" aria-label="Move ${escapeHtml(file.name)} earlier" ${index === 0 ? 'disabled' : ''}>↑</button><button data-config-action="down" data-index="${index}" type="button" aria-label="Move ${escapeHtml(file.name)} later" ${index === files.length - 1 ? 'disabled' : ''}>↓</button><button data-config-action="remove" data-index="${index}" type="button" aria-label="Remove ${escapeHtml(file.name)}">×</button></div></div>`).join('')}` : '<div class="config-empty">Open one or more YAML files, a local folder, or a configuration directory on Gadi.</div>';
+  const summary = state.configSummary;
+  if (!summary) { ['configOverview','configSources','configSettings','configOverrides'].forEach((id) => $(id).replaceChildren()); return; }
+  const count = summary.counts;
+  $('configOverview').innerHTML = `<div class="config-stats"><div><strong>${count.files}</strong><span>files</span></div><div><strong>${count.sections}</strong><span>sections</span></div><div><strong>${count.projects}</strong><span>projects</span></div><div><strong>${count.data_sources}</strong><span>data sources</span></div></div>`;
+  const projects = summary.effective.projects;
+  $('configSources').innerHTML = projects && typeof projects === 'object' && !Array.isArray(projects) && Object.keys(projects).length ? `<div class="config-section-label">DATA LOCATIONS</div><div class="config-projects">${Object.entries(projects).map(([project, settings]) => {
+    if (!settings || typeof settings !== 'object' || Array.isArray(settings)) return '';
+    const data = settings.data && typeof settings.data === 'object' && !Array.isArray(settings.data) ? settings.data : {};
+    return `<section class="config-project"><h3>${escapeHtml(project)} <small>${Object.keys(data).length} sources</small></h3>${Object.entries(data).map(([source, values]) => `<details class="config-data-source"><summary>${escapeHtml(source)}</summary>${configTree(values, ['projects', project, 'data', source], summary)}</details>`).join('') || '<p class="config-muted">No data sources defined.</p>'}${Object.keys(settings).filter((key) => key !== 'data').length ? `<details class="config-project-other"><summary>Other ${escapeHtml(project)} settings</summary>${configTree(Object.fromEntries(Object.entries(settings).filter(([key]) => key !== 'data')), ['projects', project], summary)}</details>` : ''}</section>`;
+  }).join('')}</div>` : '';
+  const other = Object.fromEntries(Object.entries(summary.effective).filter(([key]) => key !== 'projects'));
+  $('configSettings').innerHTML = `<div class="config-section-label">MERGED SETTINGS</div><div class="config-settings-card">${Object.keys(other).length ? configTree(other, [], summary) : '<p class="config-muted">No other settings in these files.</p>'}</div>`;
+  $('configOverrides').innerHTML = summary.overrides.length ? `<details class="config-overrides"><summary>${summary.overrides.length} overridden setting${summary.overrides.length === 1 ? '' : 's'}</summary>${summary.overrides.map((item) => `<div><code>${escapeHtml(item.path.join('.'))}</code><span>${escapeHtml(item.previous.split('/').pop())} → ${escapeHtml(item.file.split('/').pop())}</span></div>`).join('')}</details>` : '';
+}
+async function inspectConfig() {
+  const version = ++state.configVersion;
+  state.configSummary = null;
+  renderConfig();
+  if (!state.configFiles.length) { $('configStatus').textContent = ''; return; }
+  $('configStatus').textContent = 'Merging configuration files…';
+  try {
+    const result = await post('/config/inspect', {files: state.configFiles});
+    if (version !== state.configVersion) return;
+    state.configSummary = result;
+    $('configStatus').textContent = `Showing ${result.files.length} selected file${result.files.length === 1 ? '' : 's'} in priority order.`;
+  } catch (error) { if (version === state.configVersion) $('configStatus').textContent = error.message; }
+  if (version === state.configVersion) renderConfig();
+}
+async function addConfigFiles(files) {
+  const incoming = [...files].filter((file) => /\.ya?ml$/i.test(file.name)).sort((a,b) => a.name.localeCompare(b.name, 'en'));
+  if (!incoming.length) { $('configStatus').textContent = 'Choose .yml or .yaml files.'; return; }
+  const names = new Set(state.configFiles.map((file) => file.name));
+  const additions = [];
+  try {
+    for (const file of incoming) {
+      if (file.size > 1_000_000) throw new Error(`${file.name}: file exceeds the 1 MB limit.`);
+      let name = file.webkitRelativePath || file.name;
+      if (names.has(name)) { let number = 2; while (names.has(`${name} (${number})`)) number++; name = `${name} (${number})`; }
+      names.add(name);
+      additions.push({name, content: await file.text()});
+    }
+    if (state.configFiles.length + additions.length > 50 || [...state.configFiles, ...additions].reduce((total, file) => total + file.content.length, 0) > 3_000_000) throw new Error('Choose at most 50 files with no more than 3 MB of YAML in total.');
+    state.configFiles.push(...additions); await inspectConfig();
+  } catch (error) { $('configStatus').textContent = error.message; }
 }
 function setYamlFeedback(message = '', kind = '') {
   const feedback = $('yamlFeedback');
@@ -724,6 +798,39 @@ $('yamlEditor').addEventListener('keydown', (event) => {
 $('validateButton').addEventListener('click', async () => { await parseCurrent(); toast(!state.summary ? 'Fix the YAML before checking structure.' : state.summary.messages.length ? 'Recipe structure has issues.' : 'YAML and recipe structure look valid.', !state.summary || !!state.summary.messages.length); });
 $('openFile').addEventListener('click', () => $('fileInput').click());
 $('fileInput').addEventListener('change', async () => { const file = $('fileInput').files[0]; if (file) { setRecipe(await file.text(), file.name); $('fileInput').value = ''; } });
+$('configOpenFiles').addEventListener('click', () => $('configFileInput').click());
+$('configOpenFolder').addEventListener('click', () => $('configFolderInput').click());
+for (const id of ['configFileInput', 'configFolderInput']) $(id).addEventListener('change', async (event) => { await addConfigFiles(event.target.files); event.target.value = ''; });
+$('configClear').addEventListener('click', () => { state.configFiles = []; inspectConfig(); });
+$('configFileList').addEventListener('click', (event) => {
+  const button = event.target.closest('[data-config-action]');
+  if (!button) return;
+  const index = Number(button.dataset.index);
+  if (button.dataset.configAction === 'remove') state.configFiles.splice(index, 1);
+  else {
+    const other = index + (button.dataset.configAction === 'up' ? -1 : 1);
+    if (other < 0 || other >= state.configFiles.length) return;
+    [state.configFiles[index], state.configFiles[other]] = [state.configFiles[other], state.configFiles[index]];
+  }
+  inspectConfig();
+});
+$('configRemoteForm').addEventListener('submit', async (event) => {
+  event.preventDefault();
+  const button = $('configLoadRemote'); button.disabled = true;
+  $('configStatus').textContent = 'Reading YAML files from Gadi…';
+  try {
+    const result = await post('/config/remote', {host: $('configHost').value.trim(), path: $('configPath').value.trim()});
+    if (state.configFiles.length + result.files.length > 50) throw new Error('Choose at most 50 configuration files.');
+    const names = new Set(state.configFiles.map((file) => file.name));
+    for (const file of result.files) {
+      let name = file.name;
+      if (names.has(name)) { let number = 2; while (names.has(`${name} (${number})`)) number++; name = `${name} (${number})`; }
+      names.add(name); state.configFiles.push({name, content: file.content});
+    }
+    await inspectConfig();
+  } catch (error) { $('configStatus').textContent = error.message; }
+  finally { button.disabled = false; }
+});
 $('saveFile').addEventListener('click', () => { if (!state.yaml) return toast('Open a recipe first.', true); const blob = new Blob([state.yaml], { type: 'text/yaml' }); const link = document.createElement('a'); link.href = URL.createObjectURL(blob); link.download = state.name.split('/').pop() || 'recipe.yml'; link.click(); setTimeout(() => URL.revokeObjectURL(link.href), 1000); state.dirty = false; $('dirtyMark').hidden = true; });
 $('runButton').addEventListener('click', () => { if (!state.yaml) return toast('Open a recipe first.', true); $('runModal').hidden = false; });
 $('closeModal').addEventListener('click', () => $('runModal').hidden = true);
