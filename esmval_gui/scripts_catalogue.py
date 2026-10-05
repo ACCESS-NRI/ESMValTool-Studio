@@ -11,6 +11,36 @@ import yaml
 
 from .recipes import list_recipes
 
+SCRIPT_EXTENSIONS = {".py": "Python", ".ncl": "NCL", ".r": "R"}
+MAX_SOURCE_BYTES = 512_000
+
+
+def read_source(root: Path | None, relative: str) -> dict:
+    """Read a diagnostic script from the local ESMValTool source tree."""
+    if root is None:
+        raise FileNotFoundError("No local ESMValTool recipe collection is configured.")
+    if not relative or "\x00" in relative:
+        raise ValueError("Choose a diagnostic script path.")
+    scripts_root = (root.parent / "diag_scripts").resolve()
+    path = (scripts_root / relative).resolve()
+    if not path.is_relative_to(scripts_root):
+        raise ValueError("Script path must stay inside the diagnostic scripts directory.")
+    language = SCRIPT_EXTENSIONS.get(path.suffix.lower())
+    if language is None:
+        raise ValueError("Only Python, NCL and R diagnostic scripts can be viewed.")
+    if not path.is_file():
+        raise FileNotFoundError("Script is not available in the local ESMValTool installation.")
+    with path.open("rb") as file:
+        content = file.read(MAX_SOURCE_BYTES + 1)
+    if len(content) > MAX_SOURCE_BYTES:
+        raise ValueError("Script is too large to display (500 KB limit).")
+    try:
+        source = content.decode("utf-8")
+    except UnicodeError as exc:
+        raise ValueError("Script is not UTF-8 text.") from exc
+    return {"path": relative, "language": language, "source": source,
+            "line_count": len(source.splitlines())}
+
 
 @lru_cache(maxsize=2)
 def catalogue(root: Path | None) -> list[dict]:

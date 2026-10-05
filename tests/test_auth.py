@@ -20,7 +20,7 @@ async def next_handler(_):
 
 class AuthTests(unittest.TestCase):
     def test_api_requires_token(self):
-        for path in ("/api/health", "/api/config/remote", "/api/scripts",
+        for path in ("/api/health", "/api/config/remote", "/api/scripts", "/api/scripts/source",
                      "/api/remote/preflight", "/api/remote/submit", "/api/docs"):
             with self.subTest(path=path):
                 self.assertEqual(asyncio.run(require_api_token(request(path), next_handler)).status_code, 401)

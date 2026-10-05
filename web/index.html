@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>ESMValTool Studio</title>
-  <link rel="stylesheet" href="/style.css?v=review-2">
+  <link rel="stylesheet" href="/style.css?v=script-viewer">
 </head>
 <body>
   <div class="shell">
@@ -141,7 +141,15 @@
       <div class="modal-footer"><button id="previewButton" class="button ghost">Preview script</button><button id="submitButton" class="button primary">Review &amp; check ↗</button></div>
     </div>
   </div>
+  <div id="scriptModal" class="modal-backdrop" hidden>
+    <div class="modal script-viewer" role="dialog" aria-modal="true" aria-labelledby="scriptViewerTitle">
+      <div class="modal-header"><div class="script-viewer-heading"><div class="eyebrow">DIAGNOSTIC SCRIPT · READ ONLY</div><h2 id="scriptViewerTitle">Script source</h2><p id="scriptViewerPath"></p></div><button id="closeScriptViewer" class="icon-button" type="button" aria-label="Close script source">×</button></div>
+      <div id="scriptViewerStatus" class="script-viewer-status" role="status">Loading source…</div>
+      <div id="scriptViewerCode" class="script-viewer-code" aria-label="Diagnostic script source" hidden></div>
+      <div class="script-viewer-footer"><span id="scriptViewerMeta"></span><button id="copyScriptSource" class="button subtle small-button" type="button" hidden>Copy source</button></div>
+    </div>
+  </div>
   <input id="fileInput" type="file" accept=".yml,.yaml,text/yaml" hidden>
-  <script src="/app.js?v=review-2" defer></script>
+  <script src="/app.js?v=script-viewer" defer></script>
 </body>
 </html>

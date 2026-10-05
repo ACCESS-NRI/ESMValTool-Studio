@@ -580,6 +580,43 @@ function mountScriptCreator(item) {
     } catch (err) { form.querySelector('#scriptCreateStatus').textContent = err.message; button.disabled = false; }
   });
 }
+let scriptViewerRequest = 0;
+let scriptViewerSource = '';
+let scriptViewerPreviousFocus = null;
+function closeScriptViewer() {
+  scriptViewerRequest++;
+  $('scriptModal').hidden = true;
+  scriptViewerPreviousFocus?.focus();
+}
+async function openScriptViewer(script) {
+  const request = ++scriptViewerRequest;
+  scriptViewerPreviousFocus = document.activeElement;
+  scriptViewerSource = '';
+  $('scriptViewerTitle').textContent = script.name;
+  $('scriptViewerPath').textContent = script.path;
+  $('scriptViewerStatus').textContent = 'Loading source…';
+  $('scriptViewerStatus').hidden = false;
+  $('scriptViewerCode').hidden = true;
+  $('scriptViewerCode').replaceChildren();
+  $('scriptViewerMeta').textContent = '';
+  $('copyScriptSource').hidden = true;
+  $('scriptModal').hidden = false;
+  $('closeScriptViewer').focus();
+  try {
+    const result = await api('/scripts/source?path=' + encodeURIComponent(script.path));
+    if (request !== scriptViewerRequest) return;
+    scriptViewerSource = result.source;
+    const lines = result.source.endsWith('\n') ? result.source.slice(0, -1).split('\n') : result.source.split('\n');
+    $('scriptViewerCode').innerHTML = lines.map((line) => `<span class="script-code-line">${escapeHtml(line) || ' '}</span>`).join('');
+    $('scriptViewerCode').hidden = false;
+    $('scriptViewerStatus').hidden = true;
+    $('scriptViewerMeta').textContent = `${result.language} · ${result.line_count} lines · local ESMValTool source`;
+    $('copyScriptSource').hidden = false;
+  } catch (error) {
+    if (request !== scriptViewerRequest) return;
+    $('scriptViewerStatus').textContent = `${error.message} Check that the matching ESMValTool scripts are installed locally.`;
+  }
+}
 function selectItem(kind, id) {
   state.selected = { kind, id };
   updateConnections();
@@ -604,7 +641,10 @@ function selectItem(kind, id) {
     return;
   }
   if (kind === 'diagnostic') {
-    $('inspectorContent').innerHTML = `<div class="inspector-title"><span class="inspector-icon">◇</span><h3>${escapeHtml(item.label)}</h3><p>Diagnostic · ${item.variables.length} variables</p></div><div class="inspector-section"><div class="eyebrow">VARIABLES</div>${item.variables.map((variable) => `<div class="detail-row"><strong>${escapeHtml(variableListName(variable))}</strong><span>${escapeHtml(variable.profile)}</span></div>`).join('') || '<p class="empty">No variables</p>'}</div><div class="inspector-section"><div class="eyebrow">SCRIPTS</div>${item.scripts.map((s) => `<div class="detail-stack"><strong>${escapeHtml(s.name)}</strong><code>${escapeHtml(s.path)}</code></div>`).join('') || '<p class="empty">No scripts</p>'}</div>${item.ancestors.length ? `<div class="inspector-section"><div class="eyebrow">ANCESTORS</div><p>${escapeHtml(item.ancestors.join(', '))}</p></div>` : ''}<p class="hint">Select a variable in the pipeline to assign its preprocessor.</p>`;
+    $('inspectorContent').innerHTML = `<div class="inspector-title"><span class="inspector-icon">◇</span><h3>${escapeHtml(item.label)}</h3><p>Diagnostic · ${item.variables.length} variables</p></div><div class="inspector-section"><div class="eyebrow">VARIABLES</div>${item.variables.map((variable) => `<div class="detail-row"><strong>${escapeHtml(variableListName(variable))}</strong><span>${escapeHtml(variable.profile)}</span></div>`).join('') || '<p class="empty">No variables</p>'}</div><div class="inspector-section"><div class="eyebrow">SCRIPTS</div>${item.scripts.map((s, index) => `<div class="detail-stack diagnostic-script"><strong>${escapeHtml(s.name)}</strong><code>${escapeHtml(s.path || 'No script path')}</code>${s.path ? `<button class="button subtle small-button view-script" type="button" data-script-index="${index}">View source ↗</button>` : ''}</div>`).join('') || '<p class="empty">No scripts</p>'}</div>${item.ancestors.length ? `<div class="inspector-section"><div class="eyebrow">ANCESTORS</div><p>${escapeHtml(item.ancestors.join(', '))}</p></div>` : ''}<p class="hint">Select a variable in the pipeline to assign its preprocessor.</p>`;
+    $('inspectorContent').querySelectorAll('.view-script').forEach((button) => {
+      button.addEventListener('click', () => openScriptViewer(item.scripts[Number(button.dataset.scriptIndex)]));
+    });
     mountNodeEditor(kind, item);
     mountScriptCreator(item);
     return;
@@ -943,6 +983,13 @@ $('configRemoteForm').addEventListener('submit', async (event) => {
 });
 $('saveFile').addEventListener('click', () => { if (!state.yaml) return toast('Open a recipe first.', true); const blob = new Blob([state.yaml], { type: 'text/yaml' }); const link = document.createElement('a'); link.href = URL.createObjectURL(blob); link.download = state.name.split('/').pop() || 'recipe.yml'; link.click(); setTimeout(() => URL.revokeObjectURL(link.href), 1000); state.dirty = false; $('dirtyMark').hidden = true; persistDraft(); });
 $('runButton').addEventListener('click', () => { if (!state.yaml) return toast('Open a recipe first.', true); clearRunReview(); $('runModal').hidden = false; });
+$('closeScriptViewer').addEventListener('click', closeScriptViewer);
+$('scriptModal').addEventListener('click', (event) => { if (event.target === $('scriptModal')) closeScriptViewer(); });
+document.addEventListener('keydown', (event) => { if (event.key === 'Escape' && !$('scriptModal').hidden) closeScriptViewer(); });
+$('copyScriptSource').addEventListener('click', async () => {
+  try { await navigator.clipboard.writeText(scriptViewerSource); toast('Script source copied.'); }
+  catch (_) { toast('Could not copy script source.', true); }
+});
 $('closeModal').addEventListener('click', () => $('runModal').hidden = true);
 $('runModal').addEventListener('click', (event) => { if (event.target === $('runModal')) $('runModal').hidden = true; });
 $('runModal').addEventListener('input', (event) => { if (event.target.matches('input,select,textarea')) clearRunReview(); });

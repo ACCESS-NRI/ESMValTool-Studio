@@ -302,6 +302,16 @@ def scripts(query: str = Query(default="", max_length=100)):
     return scripts_catalogue.search(recipes.available_recipe_root(), query)
 
 
+@app.get("/api/scripts/source")
+def script_source(path: str = Query(min_length=1, max_length=500)):
+    try:
+        return scripts_catalogue.read_source(recipes.available_recipe_root(), path)
+    except FileNotFoundError as exc:
+        raise HTTPException(404, str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(400, str(exc)) from exc
+
+
 @app.post("/api/profile/create")
 def create_profile(body: ProfileCreate):
     try:

@@ -12,7 +12,7 @@ from esmval_gui.recipes import (add_script, available_recipe_root, build_recipe,
                                 read_node, library_recipe_info,
                                 set_profile_order, set_variable_profile, summarize)
 from esmval_gui.remote import RemoteSettings, cancel, script_for, submit
-from esmval_gui.scripts_catalogue import search as search_scripts
+from esmval_gui.scripts_catalogue import read_source, search as search_scripts
 
 
 class RecipeTests(unittest.TestCase):
@@ -43,6 +43,32 @@ diagnostics:
             result = search_scripts(root, "short example")
             self.assertEqual(result["total"], 1)
             self.assertEqual(result["scripts"][0]["path"], "examples/diagnostic.py")
+
+    def test_diagnostic_script_source_is_local_text_only(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory) / "esmvaltool" / "recipes"
+            scripts = root.parent / "diag_scripts"
+            root.mkdir(parents=True)
+            scripts.mkdir()
+            for name, language in (("plot.py", "Python"), ("plot.ncl", "NCL"), ("plot.R", "R")):
+                (scripts / name).write_text("first\nsecond\n", encoding="utf-8")
+                result = read_source(root, name)
+                self.assertEqual((result["language"], result["line_count"]), (language, 2))
+                self.assertEqual(result["source"], "first\nsecond\n")
+            (root.parent / "outside.py").write_text("secret", encoding="utf-8")
+            with self.assertRaises(ValueError):
+                read_source(root, "../outside.py")
+            (scripts / "linked.py").symlink_to(root.parent / "outside.py")
+            with self.assertRaises(ValueError):
+                read_source(root, "linked.py")
+            (scripts / "data.bin").write_bytes(b"binary")
+            with self.assertRaises(ValueError):
+                read_source(root, "data.bin")
+            (scripts / "large.py").write_bytes(b"x" * 512_001)
+            with self.assertRaisesRegex(ValueError, "too large"):
+                read_source(root, "large.py")
+            with self.assertRaises(FileNotFoundError):
+                read_source(root, "missing.py")
 
     def test_esgf_results_fill_recipe_facets(self):
         payload = {"response": {"numFound": 2, "docs": [
