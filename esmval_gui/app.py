@@ -125,7 +125,8 @@ class ScriptCreate(RecipeInput):
 
 
 class ProbeInput(BaseModel):
-    host: str = "gadi"
+    host: str = "gadi.nci.org.au"
+    username: str = ""
     esmvaltool_command: str = "esmvaltool"
     setup_command: str = ""
 
@@ -144,7 +145,8 @@ class ConfigInspect(BaseModel):
 
 
 class ConfigRemote(BaseModel):
-    host: str = "gadi"
+    host: str = "gadi.nci.org.au"
+    username: str = ""
     path: str = ""
 
 
@@ -159,7 +161,7 @@ def inspect_config(body: ConfigInspect):
 @app.post("/api/config/remote")
 def remote_config(body: ConfigRemote):
     try:
-        files = configuration.load_remote_files(body.host, body.path)
+        files = configuration.load_remote_files(remote.ssh_target(body.host, body.username), body.path)
         configuration.inspect_files(files)
         return {"files": files}
     except ValueError as exc:
@@ -369,7 +371,7 @@ def edit_profile_fields(body: ProfileFields):
 @app.post("/api/remote/probe")
 def probe(body: ProbeInput):
     try:
-        return remote.probe(body.host, body.esmvaltool_command, body.setup_command)
+        return remote.probe(remote.ssh_target(body.host, body.username), body.esmvaltool_command, body.setup_command)
     except (ValueError, RuntimeError, TimeoutError) as exc:
         raise HTTPException(400, str(exc)) from exc
 
@@ -395,7 +397,7 @@ def preflight(body: RunInput):
         remote.validate_resources(body.settings)
         checks = [{"level": "error", "label": "Recipe structure", "detail": message}
                   for message in summary["messages"]]
-        found = remote.probe(body.settings.host, body.settings.esmvaltool_command,
+        found = remote.probe(body.settings.ssh_target, body.settings.esmvaltool_command,
                              body.settings.setup_command)
         checks.append({"level": "ok" if found.get("pbs") == "yes" else "error", "label": "PBS",
                        "detail": "qsub found" if found.get("pbs") == "yes" else "qsub unavailable"})
@@ -405,7 +407,7 @@ def preflight(body: RunInput):
         selected_config = body.settings.config_file or body.settings.config_dir or found.get("config_file", "")
         config = None
         try:
-            files = configuration.load_remote_files(body.settings.host, selected_config)
+            files = configuration.load_remote_files(body.settings.ssh_target, selected_config)
             config = configuration.inspect_files(files)
             checks.append({"level": "ok", "label": "Configuration",
                            "detail": f"Read {len(files)} YAML file(s) from Gadi"})
@@ -435,7 +437,7 @@ def preflight(body: RunInput):
                                for item in diagnostic["scripts"] if item["path"]})
         if executable:
             try:
-                inspected = remote.inspect_scripts(body.settings.host, executable, script_paths)
+                inspected = remote.inspect_scripts(body.settings.ssh_target, executable, script_paths)
                 versions = inspected.get("versions") or {}
                 checks.append({"level": "ok" if versions.get("ESMValCore") else "warning",
                                "label": "Gadi environment",
@@ -471,7 +473,7 @@ def submit(body: RunInput):
         summary = recipes.summarize(body.yaml)
         if summary["messages"]:
             raise ValueError("Fix recipe structure before submission: " + "; ".join(summary["messages"]))
-        found = remote.probe(body.settings.host, body.settings.esmvaltool_command, body.settings.setup_command)
+        found = remote.probe(body.settings.ssh_target, body.settings.esmvaltool_command, body.settings.setup_command)
         if found.get("pbs") != "yes":
             raise ValueError("qsub is unavailable on this host")
         if not found.get("esmvaltool_path"):

@@ -50,15 +50,15 @@ export ESMVAL_GUI_CORE_ROOT=/path/to/ESMValCore/esmvalcore
 
 ### Connect to Gadi
 
-Configure an SSH host or alias in `~/.ssh/config` on the GUI host, then check that non-interactive SSH works:
+The GUI defaults to `gadi.nci.org.au`. Enter your NCI username in its separate optional field, or leave it blank to use the username configured for that host in `~/.ssh/config` on the GUI host. An SSH alias such as `gadi` also works if you have defined one. Check that non-interactive SSH works:
 
 ```bash
-ssh -o BatchMode=yes your-gadi-alias 'command -v qsub'
+ssh -o BatchMode=yes gadi.nci.org.au 'command -v qsub'
 ```
 
 If **Check Gadi connection** reports SSH authentication failure, load the private key configured for that host into your local SSH agent with `ssh-add /path/to/your/gadi-key`. Enter its passphrase in your terminal, not in the GUI. The corresponding public key must also be authorized for your NCI account. The GUI uses `BatchMode=yes`, so a password-only SSH login will not work.
 
-Enter that alias in the GUI's **Submit to Gadi** dialog and use **Check Gadi connection**. The Gadi account must have an NCI project, PBS access, an `esmvaltool` executable, and an ESMValTool user config with the data roots needed by the recipe. Set the executable path or a one-line environment setup command in the dialog if it is not already on `PATH`. The GUI never requests, receives, or stores the private key or passphrase. In the dialog, choose the remote working directory, storage projects, and config file or directory before submitting.
+Use **Check Gadi connection** in the **Submit to Gadi** dialog. The Gadi account must have an NCI project, PBS access, an `esmvaltool` executable, and an ESMValTool user config with the data roots needed by the recipe. Set the executable path or a one-line environment setup command in the dialog if it is not already on `PATH`. The GUI never requests, receives, or stores the private key or passphrase. In the dialog, choose the remote working directory, storage projects, and config file or directory before submitting.
 
 The application is run from this checkout rather than installed as a Python package. If you update the checkout later, restart the server to load backend changes.
 

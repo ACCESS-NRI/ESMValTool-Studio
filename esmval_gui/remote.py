@@ -13,6 +13,7 @@ from pydantic import BaseModel, Field, field_validator
 
 
 HOST_RE = re.compile(r"^[A-Za-z0-9_.@-]+$")
+USERNAME_RE = re.compile(r"^[A-Za-z0-9_][A-Za-z0-9_.-]*$")
 CODE_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_-]{0,31}$")
 STORAGE_RE = re.compile(r"^(?:gdata|scratch)/[A-Za-z0-9_-]+(?:\+(?:gdata|scratch)/[A-Za-z0-9_-]+)*$")
 COMMAND_RE = re.compile(r"^[A-Za-z0-9_./-]+$")
@@ -20,7 +21,8 @@ JOB_RE = re.compile(r"^[0-9]+(?:\.[A-Za-z0-9_.-]+)?$")
 
 
 class RemoteSettings(BaseModel):
-    host: str = "gadi"
+    host: str = "gadi.nci.org.au"
+    username: str = ""
     project: str = ""
     queue: str = "normal"
     ncpus: int = Field(default=1, ge=1, le=48)
@@ -40,6 +42,17 @@ class RemoteSettings(BaseModel):
         if not HOST_RE.fullmatch(value) or value.startswith("-"):
             raise ValueError("Use an SSH hostname or alias")
         return value
+
+    @field_validator("username")
+    @classmethod
+    def validate_username(cls, value: str) -> str:
+        if value and not USERNAME_RE.fullmatch(value):
+            raise ValueError("Use a valid SSH username")
+        return value
+
+    @property
+    def ssh_target(self) -> str:
+        return ssh_target(self.host, self.username)
 
     @field_validator("project")
     @classmethod
@@ -152,6 +165,14 @@ def script_for(settings: RemoteSettings, recipe_path: str, remote_dir: str) -> s
     return "\n".join(lines) + "\n"
 
 
+def ssh_target(host: str, username: str = "") -> str:
+    if not HOST_RE.fullmatch(host) or host.startswith("-"):
+        raise ValueError("Use an SSH hostname or alias")
+    if username and (not USERNAME_RE.fullmatch(username) or "@" in host):
+        raise ValueError("Use a hostname without @ when entering a separate SSH username")
+    return f"{username}@{host}" if username else host
+
+
 def ssh_args(host: str) -> list[str]:
     # Explicit -F avoids a broken global SSH config on some Linux desktops while
     # preserving the user's aliases, keys, ProxyJump and MFA configuration.
@@ -261,16 +282,16 @@ def submit(settings: RemoteSettings, recipe: str, state_dir: Path, title: str = 
     job_path = posixpath.join(remote_dir, "job.pbs")
     script = script_for(settings, recipe_path, remote_dir)
     remote = shlex.quote(remote_dir)
-    ssh(settings.host, f"mkdir -p {remote} && chmod 700 {remote}")
-    ssh(settings.host, f"cat > {shlex.quote(recipe_path)}", recipe)
-    ssh(settings.host, f"cat > {shlex.quote(job_path)}", script)
-    response = ssh(settings.host, f"qsub {shlex.quote(job_path)}")
+    ssh(settings.ssh_target, f"mkdir -p {remote} && chmod 700 {remote}")
+    ssh(settings.ssh_target, f"cat > {shlex.quote(recipe_path)}", recipe)
+    ssh(settings.ssh_target, f"cat > {shlex.quote(job_path)}", script)
+    response = ssh(settings.ssh_target, f"qsub {shlex.quote(job_path)}")
     job_id = response.splitlines()[-1].strip()
     if not JOB_RE.fullmatch(job_id):
         raise RuntimeError(f"qsub returned an unexpected job ID: {response}")
     record = {
         "id": run_id, "job_id": job_id, "remote_dir": remote_dir,
-        "host": settings.host, "title": title[:200],
+        "host": settings.ssh_target, "title": title[:200],
         "submitted_at": datetime.now(timezone.utc).isoformat(),
         "project": settings.project, "queue": settings.queue,
     }

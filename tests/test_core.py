@@ -11,7 +11,7 @@ from esmval_gui.recipes import (add_script, available_recipe_root, build_recipe,
                                 edit_node, edit_node_fields, list_recipes, move_profile_step, parse_recipe, read_library_recipe,
                                 read_node, library_recipe_info,
                                 set_profile_order, set_variable_profile, summarize)
-from esmval_gui.remote import RemoteSettings, cancel, script_for, submit
+from esmval_gui.remote import RemoteSettings, cancel, script_for, ssh_target, submit
 from esmval_gui.scripts_catalogue import read_source, search as search_scripts
 
 
@@ -448,6 +448,15 @@ diagnostics: {maps: {variables: {tas: {}}, scripts: {plot: {script: examples/dia
         with self.assertRaises(ValidationError):
             RemoteSettings(project="ab12", work_dir="/scratch/ab12/user\n#PBS -q express")
 
+    def test_ssh_host_and_username_are_separate(self):
+        self.assertEqual(RemoteSettings().ssh_target, "gadi.nci.org.au")
+        self.assertEqual(ssh_target("gadi.nci.org.au", "rb5533"), "rb5533@gadi.nci.org.au")
+        self.assertEqual(ssh_target("gadi"), "gadi")
+        with self.assertRaisesRegex(ValueError, "without @"):
+            ssh_target("other@gadi.nci.org.au", "rb5533")
+        with self.assertRaises(ValidationError):
+            RemoteSettings(username="bad user")
+
     @patch("esmval_gui.remote.ssh")
     def test_submit_uploads_recipe_and_script_then_qsub(self, ssh):
         ssh.side_effect = ["", "", "", "12345.gadi-pbs"]
@@ -457,6 +466,15 @@ diagnostics: {maps: {variables: {tas: {}}, scripts: {plot: {script: examples/dia
             self.assertEqual(ssh.call_count, 4)
             self.assertIn("documentation:", ssh.call_args_list[1].args[2])
             self.assertTrue((Path(tmp) / f"{job['id']}.json").exists())
+
+    @patch("esmval_gui.remote.ssh")
+    def test_submit_remembers_explicit_username_for_job_followup(self, ssh):
+        ssh.side_effect = ["", "", "", "12345.gadi-pbs"]
+        with tempfile.TemporaryDirectory() as tmp:
+            settings = self.settings().model_copy(update={"username": "nciuser"})
+            job = submit(settings, "documentation: {}\ndiagnostics: {}\n", Path(tmp))
+            self.assertEqual(job["host"], "nciuser@gadi.nci.org.au")
+            self.assertTrue(all(call.args[0] == job["host"] for call in ssh.call_args_list))
 
     @patch("esmval_gui.remote.status", return_value={"state": "queued"})
     @patch("esmval_gui.remote.ssh")

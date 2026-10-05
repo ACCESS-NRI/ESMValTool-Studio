@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>ESMValTool Studio</title>
   <script>try { if (localStorage.getItem('esmval-studio-theme') === 'dark') document.documentElement.dataset.theme = 'dark'; } catch (_) {}</script>
-  <link rel="stylesheet" href="/style.css?v=gadi-error-1">
+  <link rel="stylesheet" href="/style.css?v=ssh-host-1">
 </head>
 <body>
   <div class="shell">
@@ -56,7 +56,7 @@
           <div class="config-import">
             <div class="config-import-actions"><button id="configOpenFiles" class="button primary" type="button">Open YAML files</button><button id="configOpenFolder" class="button subtle" type="button">Open folder</button><button id="configClear" class="button ghost" type="button">Clear</button></div>
             <input id="configFileInput" type="file" accept=".yml,.yaml" multiple hidden><input id="configFolderInput" type="file" webkitdirectory multiple hidden>
-            <form id="configRemoteForm" class="config-remote-form"><label>SSH host<input id="configHost" value="gadi" autocomplete="off" aria-label="Gadi SSH host"></label><label>File or directory on Gadi <span class="optional">blank: standard user config</span><input id="configPath" placeholder="/home/your-user/.config/esmvaltool" aria-label="Gadi configuration path"></label><button id="configLoadRemote" class="button subtle" type="submit">Load from Gadi</button></form>
+            <form id="configRemoteForm" class="config-remote-form"><label>SSH host<input id="configHost" value="gadi.nci.org.au" autocomplete="off" aria-label="Gadi SSH host"></label><label>NCI username <span class="optional">optional</span><input id="configUsername" autocomplete="username" placeholder="From SSH config if blank"></label><label>File or directory on Gadi <span class="optional">blank: standard user config</span><input id="configPath" placeholder="/home/your-user/.config/esmvaltool" aria-label="Gadi configuration path"></label><button id="configLoadRemote" class="button subtle" type="submit">Load from Gadi</button></form>
             <p class="config-explain">Files merge in the order shown below. Later files take precedence; nested settings combine. This view includes selected files only. ESMValCore defaults and command line options may change runtime values.</p><p id="configStatus" class="config-status" role="status"></p>
           </div>
           <div id="configFileList" class="config-file-list"></div>
@@ -122,7 +122,8 @@
       <div class="modal-header"><div><div class="eyebrow">PBS SUBMISSION</div><h2 id="runTitle">Run on Gadi</h2></div><button id="closeModal" class="icon-button" aria-label="Close">×</button></div>
       <div class="modal-body">
         <div class="form-grid">
-          <label>SSH host <input id="host" value="gadi"></label>
+          <label>SSH host <input id="host" value="gadi.nci.org.au" autocomplete="off"></label>
+          <label>NCI username <span class="optional">optional</span><input id="username" autocomplete="username" placeholder="From SSH config if blank"></label>
           <label>NCI project <input id="project" placeholder="e.g. ab12"></label>
           <label>Queue <select id="queue"><option>normal</option><option>express</option><option>normalbw</option><option>expressbw</option></select></label>
           <label>Walltime <input id="walltime" value="00:20:00" placeholder="HH:MM:SS"></label>
@@ -136,6 +137,7 @@
           <label class="wide">ESMValTool config directory <input id="config_dir" placeholder="Optional absolute path"></label>
           <label class="wide">ESMValTool config file <input id="config_file" placeholder="Optional legacy config-user.yml path"></label>
         </div>
+        <p class="ssh-hint">Use gadi.nci.org.au or an SSH alias. Leave the username blank to use your SSH config.</p>
         <div class="remote-actions"><button id="probeButton" class="button subtle">Check Gadi connection</button><span id="probeResult"></span></div>
         <p id="probeError" class="remote-error" role="alert" hidden></p>
         <div id="runReview" class="run-review" role="status" hidden></div>
@@ -153,6 +155,6 @@
     </div>
   </div>
   <input id="fileInput" type="file" accept=".yml,.yaml,text/yaml" hidden>
-  <script src="/app.js?v=gadi-error-1" defer></script>
+  <script src="/app.js?v=ssh-host-1" defer></script>
 </body>
 </html>

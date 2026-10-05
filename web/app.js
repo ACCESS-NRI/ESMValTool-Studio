@@ -786,21 +786,27 @@ async function openLibraryRecipe(path) {
   catch (err) { toast(err.message, true); }
 }
 function settings() {
-  const ids = ['host','project','queue','walltime','ncpus','memory_gb','jobfs_gb','storage','work_dir','esmvaltool_command','setup_command','config_dir','config_file'];
+  const ids = ['host','username','project','queue','walltime','ncpus','memory_gb','jobfs_gb','storage','work_dir','esmvaltool_command','setup_command','config_dir','config_file'];
   const value = Object.fromEntries(ids.map((id) => [id, $(id).value.trim()]));
   ['ncpus','memory_gb','jobfs_gb'].forEach((id) => value[id] = Number(value[id]));
   localStorage.setItem('esmval-gui-settings', JSON.stringify(value));
   return value;
 }
 function restoreSettings() {
-  try { const saved = JSON.parse(localStorage.getItem('esmval-gui-settings') || '{}'); Object.entries(saved).forEach(([id, value]) => { if ($(id)) $(id).value = value; }); } catch (_) {}
+  try {
+    const saved = JSON.parse(localStorage.getItem('esmval-gui-settings') || '{}');
+    if (!saved.username && /^[A-Za-z0-9_.-]+@[A-Za-z0-9_.-]+$/.test(saved.host || '')) {
+      [saved.username, saved.host] = saved.host.split('@');
+    }
+    Object.entries(saved).forEach(([id, value]) => { if ($(id)) $(id).value = value; });
+  } catch (_) {}
 }
 async function probeRemote() {
   $('probeResult').textContent = 'Connecting…';
   $('probeError').hidden = true;
   $('probeError').textContent = '';
   try {
-    const s = settings(); const result = await post('/remote/probe', { host: s.host, esmvaltool_command: s.esmvaltool_command, setup_command: s.setup_command });
+    const s = settings(); const result = await post('/remote/probe', { host: s.host, username: s.username, esmvaltool_command: s.esmvaltool_command, setup_command: s.setup_command });
     if (s.esmvaltool_command === 'esmvaltool' && result.esmvaltool_path) $('esmvaltool_command').value = result.esmvaltool_path;
     if (!s.project && result.project) $('project').value = result.project;
     if (!s.config_dir && !s.config_file && result.config_file) $('config_file').value = result.config_file;
@@ -997,7 +1003,7 @@ $('configRemoteForm').addEventListener('submit', async (event) => {
   const button = $('configLoadRemote'); button.disabled = true;
   $('configStatus').textContent = 'Reading YAML files from Gadi…';
   try {
-    const result = await post('/config/remote', {host: $('configHost').value.trim(), path: $('configPath').value.trim()});
+    const result = await post('/config/remote', {host: $('configHost').value.trim(), username: $('configUsername').value.trim(), path: $('configPath').value.trim()});
     if (state.configFiles.length + result.files.length > 50) throw new Error('Choose at most 50 configuration files.');
     const names = new Set(state.configFiles.map((file) => file.name));
     for (const file of result.files) {

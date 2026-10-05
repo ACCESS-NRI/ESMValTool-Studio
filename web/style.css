@@ -191,3 +191,7 @@
 .remote-error{margin:-9px 0 14px;padding:10px 12px;border:1px solid #eccdc8;border-radius:8px;background:#fff4f2;color:#994c43;font-size:11px;line-height:1.5}.remote-error[hidden]{display:none}
 :root[data-theme=dark] .remote-error{background:#3a2a32;border-color:#77525b;color:#ffd2c8}
 :root[data-theme=dark] .remote-actions{color:#b6d9f0}
+.config-remote-form{grid-template-columns:minmax(150px,1.25fr) minmax(125px,1fr) minmax(180px,1.8fr) auto}
+.ssh-hint{margin:14px 0 0;color:#6e8aa1;font-size:11px;line-height:1.5}
+:root[data-theme=dark] .ssh-hint{color:#a9c7da}
+@media(max-width:800px){.config-remote-form{grid-template-columns:1fr}}
