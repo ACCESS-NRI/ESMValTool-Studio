@@ -472,7 +472,8 @@ function mountNodeEditor(kind, item) {
   const name = kind === 'dataset' ? '' : `<label class="field">${kind === 'variable' ? 'Variable group' : kind === 'profile' ? 'Profile name' : 'Diagnostic name'}<input id="nodeName" value="${escapeHtml(item.name || item.id)}"></label>`;
   const profileBuilder = kind === 'profile' ? '<button id="editorBuilder" class="button subtle small-button">Edit steps in builder →</button>' : '';
   const variableHint = kind === 'variable' ? '<p class="hint">If scripts use this group name, update those references after renaming it.</p>' : '';
-  $('inspectorContent').querySelector('.inspector-title').insertAdjacentHTML('afterend', `<div id="nodeEditor" class="inspector-section node-editor"><div class="eyebrow">EDIT ${label.toUpperCase()}</div>${profileBuilder}${choices}${name}${variableHint}<div id="nodeFields"></div><details class="node-advanced"><summary>Advanced YAML</summary><p class="hint">Edit nested settings or the complete definition here.</p><label class="field">Definition (YAML)<textarea id="nodeDefinition" rows="10" spellcheck="false" aria-label="${label} YAML definition"></textarea></label><button id="saveNodeYaml" class="button subtle small-button">Save YAML definition</button></details><div class="node-editor-actions"><button id="saveNodeFields" class="button primary small-button">Save ${label.toLowerCase()}</button><button id="resetNode" class="button ghost small-button">Reset</button></div><details class="node-add"><summary>Add setting</summary><label class="field">Name<input id="newNodeField" placeholder="e.g. start_year"></label><label class="field">Value<input id="newNodeValue" placeholder="e.g. 2000"></label></details><p id="nodeEditStatus" class="hint" role="status"></p></div>`);
+  const anchor = kind === 'diagnostic' ? $('diagnosticVariables') : $('inspectorContent').querySelector('.inspector-title');
+  anchor.insertAdjacentHTML('afterend', `<div id="nodeEditor" class="inspector-section node-editor"><div class="eyebrow">EDIT ${label.toUpperCase()}</div>${profileBuilder}${choices}${name}${variableHint}<div id="nodeFields"></div><details class="node-advanced"><summary>Advanced YAML</summary><p class="hint">Edit nested settings or the complete definition here.</p><label class="field">Definition (YAML)<textarea id="nodeDefinition" rows="10" spellcheck="false" aria-label="${label} YAML definition"></textarea></label><button id="saveNodeYaml" class="button subtle small-button">Save YAML definition</button></details><div class="node-editor-actions"><button id="saveNodeFields" class="button primary small-button">Save ${label.toLowerCase()}</button><button id="resetNode" class="button ghost small-button">Reset</button></div><details class="node-add"><summary>Add setting</summary><label class="field">Name<input id="newNodeField" placeholder="e.g. start_year"></label><label class="field">Value<input id="newNodeValue" placeholder="e.g. 2000"></label></details><p id="nodeEditStatus" class="hint" role="status"></p></div>`);
   const editor = $('nodeEditor');
   editor.querySelector('#editorBuilder')?.addEventListener('click', () => { state.builderProfile = item.id; state.builderBrick = ''; setTab('builder'); });
   editor.querySelector('#nodeOccurrence')?.addEventListener('change', () => loadNodeEditor(kind, item, editor));
@@ -566,7 +567,7 @@ function mountScriptCreator(item) {
   const existing = new Set(item.scripts.map((script) => script.name));
   let suggested = 'plot'; let number = 2;
   while (existing.has(suggested)) suggested = `plot_${number++}`;
-  $('nodeEditor').insertAdjacentHTML('afterend', `<form id="scriptCreate" class="inspector-section script-create"><div class="eyebrow">ADD SCRIPT</div><label class="field">Name<input id="scriptName" required value="${suggested}" placeholder="e.g. plot"></label><label class="field">Script path<input id="scriptPath" required placeholder="e.g. examples/diagnostic.py"></label><button class="button subtle small-button" type="submit">Add script</button><p id="scriptCreateStatus" class="hint" role="status"></p></form>`);
+  $('diagnosticScripts').insertAdjacentHTML('afterend', `<form id="scriptCreate" class="inspector-section script-create"><div class="eyebrow">ADD SCRIPT</div><label class="field">Name<input id="scriptName" required value="${suggested}" placeholder="e.g. plot"></label><label class="field">Script path<input id="scriptPath" required placeholder="e.g. examples/diagnostic.py"></label><button class="button subtle small-button" type="submit">Add script</button><p id="scriptCreateStatus" class="hint" role="status"></p></form>`);
   attachScriptPicker($('scriptCreate'), $('scriptPath'));
   $('scriptCreate').addEventListener('submit', async (event) => {
     event.preventDefault();
@@ -619,6 +620,7 @@ async function openScriptViewer(script) {
 }
 function selectItem(kind, id) {
   state.selected = { kind, id };
+  $('inspectorContent').scrollTop = 0;
   updateConnections();
   const items = kind === 'profile' ? pipelineProfiles() : state.summary.graph[kind === 'dataset' ? 'datasets' : kind === 'variable' ? 'variables' : 'diagnostics'];
   const item = items.find((x) => x.id === id);
@@ -644,8 +646,8 @@ function selectItem(kind, id) {
     const scriptRows = item.scripts.map((script, index) => `<div class="detail-stack diagnostic-script"><strong>${escapeHtml(script.name)}</strong><code>${escapeHtml(script.path || 'No script path')}</code>${script.path ? `<button class="button subtle small-button view-script" type="button" data-script-index="${index}">View source ↗</button>` : ''}</div>`).join('') || '<p class="empty">No scripts</p>';
     const variableRows = item.variables.map((variable) => `<div class="detail-row"><strong>${escapeHtml(variableListName(variable))}</strong><span>${escapeHtml(variable.profile)}</span></div>`).join('') || '<p class="empty">No variables</p>';
     $('inspectorContent').innerHTML = `<div class="inspector-title"><span class="inspector-icon">◇</span><h3>${escapeHtml(item.label)}</h3><p>Diagnostic · ${item.variables.length} variables</p></div>
-      <div class="inspector-section"><div class="eyebrow">SCRIPTS</div>${scriptRows}</div>
-      <div class="inspector-section"><div class="eyebrow">VARIABLES</div>${variableRows}</div>
+      <div id="diagnosticScripts" class="inspector-section"><div class="eyebrow">SCRIPTS</div>${scriptRows}</div>
+      <div id="diagnosticVariables" class="inspector-section"><div class="eyebrow">VARIABLES</div>${variableRows}</div>
       ${item.ancestors.length ? `<div class="inspector-section"><div class="eyebrow">ANCESTORS</div><p>${escapeHtml(item.ancestors.join(', '))}</p></div>` : ''}
       <p class="hint">Select a variable in the pipeline to assign its preprocessor.</p>`;
     $('inspectorContent').querySelectorAll('.view-script').forEach((button) => {
