@@ -56,7 +56,9 @@ Configure an SSH host or alias in `~/.ssh/config` on the GUI host, then check th
 ssh -o BatchMode=yes your-gadi-alias 'command -v qsub'
 ```
 
-Enter that alias in the GUI's **Submit to Gadi** dialog and use **Check Gadi connection**. The Gadi account must have an NCI project, PBS access, an `esmvaltool` executable, and an ESMValTool user config with the data roots needed by the recipe. Set the executable path or a one-line environment setup command in the dialog if it is not already on `PATH`. If the SSH private key has a passphrase, unlock it in your operating system's SSH agent first (for example, `ssh-add /path/to/private-key` in a terminal). The GUI uses noninteractive SSH and never requests, receives, or stores the private key or passphrase. In the dialog, choose the remote working directory, storage projects, and config file or directory before submitting.
+If **Check Gadi connection** reports SSH authentication failure, load the private key configured for that host into your local SSH agent with `ssh-add /path/to/your/gadi-key`. Enter its passphrase in your terminal, not in the GUI. The corresponding public key must also be authorized for your NCI account. The GUI uses `BatchMode=yes`, so a password-only SSH login will not work.
+
+Enter that alias in the GUI's **Submit to Gadi** dialog and use **Check Gadi connection**. The Gadi account must have an NCI project, PBS access, an `esmvaltool` executable, and an ESMValTool user config with the data roots needed by the recipe. Set the executable path or a one-line environment setup command in the dialog if it is not already on `PATH`. The GUI never requests, receives, or stores the private key or passphrase. In the dialog, choose the remote working directory, storage projects, and config file or directory before submitting.
 
 The application is run from this checkout rather than installed as a Python package. If you update the checkout later, restart the server to load backend changes.
 

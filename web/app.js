@@ -797,6 +797,8 @@ function restoreSettings() {
 }
 async function probeRemote() {
   $('probeResult').textContent = 'Connecting…';
+  $('probeError').hidden = true;
+  $('probeError').textContent = '';
   try {
     const s = settings(); const result = await post('/remote/probe', { host: s.host, esmvaltool_command: s.esmvaltool_command, setup_command: s.setup_command });
     if (s.esmvaltool_command === 'esmvaltool' && result.esmvaltool_path) $('esmvaltool_command').value = result.esmvaltool_path;
@@ -811,7 +813,15 @@ async function probeRemote() {
     $('probeResult').textContent = result.pbs === 'yes' ? (result.esmvaltool_path ? 'PBS and ESMValTool ready' : 'PBS ready · ESMValTool executable not found') : 'PBS unavailable';
     $('connectionBadge').textContent = result.pbs === 'yes' ? 'Gadi connected' : 'SSH connected';
     $('connectionBadge').classList.add('connected'); settings();
-  } catch (err) { $('probeResult').textContent = 'Connection failed'; toast(err.message, true); }
+  } catch (err) {
+    const reason = err.message.trim().split('\n').filter(Boolean).at(-1) || 'SSH connection failed.';
+    const authenticationFailed = /Permission denied \(publickey/i.test(reason);
+    $('probeResult').textContent = authenticationFailed ? 'SSH authentication failed' : 'Connection failed';
+    $('probeError').textContent = authenticationFailed
+      ? 'Gadi rejected SSH authentication. Load the key configured for this host into your SSH agent, and check that its public key is authorized on Gadi. This check cannot prompt for a key passphrase.'
+      : reason;
+    $('probeError').hidden = false;
+  }
 }
 async function previewScript() {
   try { const result = await post('/remote/preview', { yaml: state.yaml, settings: settings() }); $('pbsScript').textContent = result.script; document.querySelector('.script-preview').open = true; return true; }

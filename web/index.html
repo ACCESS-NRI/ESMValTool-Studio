@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>ESMValTool Studio</title>
   <script>try { if (localStorage.getItem('esmval-studio-theme') === 'dark') document.documentElement.dataset.theme = 'dark'; } catch (_) {}</script>
-  <link rel="stylesheet" href="/style.css?v=night-mode-2">
+  <link rel="stylesheet" href="/style.css?v=gadi-error-1">
 </head>
 <body>
   <div class="shell">
@@ -137,6 +137,7 @@
           <label class="wide">ESMValTool config file <input id="config_file" placeholder="Optional legacy config-user.yml path"></label>
         </div>
         <div class="remote-actions"><button id="probeButton" class="button subtle">Check Gadi connection</button><span id="probeResult"></span></div>
+        <p id="probeError" class="remote-error" role="alert" hidden></p>
         <div id="runReview" class="run-review" role="status" hidden></div>
         <details class="script-preview"><summary>Review PBS script</summary><pre id="pbsScript">Fill in the settings and select Preview.</pre></details>
       </div>
@@ -152,6 +153,6 @@
     </div>
   </div>
   <input id="fileInput" type="file" accept=".yml,.yaml,text/yaml" hidden>
-  <script src="/app.js?v=night-mode-1" defer></script>
+  <script src="/app.js?v=gadi-error-1" defer></script>
 </body>
 </html>
