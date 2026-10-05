@@ -133,3 +133,58 @@
 
 .diagnostic-script{display:flex;flex-wrap:wrap;align-items:center;gap:5px 8px}.diagnostic-script strong{flex-basis:100%}.diagnostic-script code{min-width:0;overflow-wrap:anywhere}.diagnostic-script .view-script{margin-top:4px;padding:5px 8px;font-size:10px}
 .script-viewer{width:min(1100px,100%);height:min(82vh,900px);overflow:hidden}.script-viewer .modal-header{flex:none;gap:15px;padding:18px 22px}.script-viewer-heading{min-width:0}.script-viewer-heading h2{font-size:19px}.script-viewer-heading p{margin:6px 0 0;color:#6787a0;font:11px/1.4 ui-monospace,SFMono-Regular,Consolas,monospace;overflow-wrap:anywhere}.script-viewer-status{flex:1;padding:23px;color:#54758e;font-size:12px;line-height:1.5}.script-viewer-code{flex:1;min-height:0;margin:0 16px;overflow:auto;border:1px solid #d4e5f1;border-radius:9px;background:#102e49;color:#deeffa;counter-reset:source-line;font:11px/1.65 ui-monospace,SFMono-Regular,Consolas,monospace;tab-size:4}.script-viewer-code[hidden],.script-viewer-status[hidden],.script-viewer-footer button[hidden]{display:none}.script-code-line{display:block;width:max-content;min-width:100%;padding:0 15px 0 0;white-space:pre;counter-increment:source-line}.script-code-line:first-child{padding-top:12px}.script-code-line:last-child{padding-bottom:12px}.script-code-line::before{content:counter(source-line);display:inline-block;box-sizing:border-box;position:sticky;left:0;width:54px;margin-right:17px;padding-right:12px;border-right:1px solid #34556f;background:#102e49;color:#789fba;text-align:right;user-select:none}.script-viewer-footer{display:flex;align-items:center;justify-content:space-between;gap:15px;min-height:58px;padding:10px 21px;color:#6f8da4;font-size:11px}
+
+/* The optional night palette keeps the ESMValTool blues and the globe logo. */
+.theme-toggle{display:inline-flex;align-items:center;justify-content:center;gap:7px}.theme-toggle span{margin:0}.theme-toggle>span:first-child{font-size:17px;line-height:1}
+@media(max-width:1000px){.theme-toggle .theme-label{display:none}.theme-toggle{width:36px;padding:8px!important}}
+:root[data-theme=dark]{color-scheme:dark;--ink:#e7f0f8;--muted:#a7bdcf;--border:#31485e;--surface:#18283a;--surface-strong:#20354a;--blue:#378dca;--blue-dark:#2678b6;--blue-line:#59a9df;background:#0d1723;color:var(--ink);scrollbar-color:#3d586e #142235}
+:root[data-theme=dark] :is(.topbar,.panel,.modal,.auth-card){background:#142235;color:var(--ink)}
+:root[data-theme=dark] .topbar{background:linear-gradient(110deg,#142235,#172c42);border-bottom-color:var(--border)}
+:root[data-theme=dark] .brand img,:root[data-theme=dark] .auth-card img{background:#f7fbfe;padding:5px;border-radius:8px}
+:root[data-theme=dark] .brand-product{border-color:#44637b;color:#8cc9f1}
+:root[data-theme=dark] :is(.library,.inspector){background:#111e2e;border-color:var(--border)}
+:root[data-theme=dark] :is(.panel-heading h2,.pipeline-header h2,.runs-header h2,.builder-heading h2,.document-head h1,.config-heading h2,.inspector-title h3,.modal-header h2,.auth-card h2){color:var(--ink)}
+:root[data-theme=dark] :is(.eyebrow,.column-title,.builder-subhead,.config-section-label){color:#91aec3}
+:root[data-theme=dark] :is(.document-head p,.recipe-entry-group,.sidebar-footer,.stat div span,.pipeline-tip,.empty,.empty-state,.hint,.inspector-title p,.detail-row span,.job-entry small,.job-state,.builder-heading p,.builder-toolbar>span,.brick-entry small,.brick-detail-head p,.brick-param small,.brick-param em,.config-heading p,.config-explain,.config-muted,.script-viewer-footer,.script-viewer-heading p){color:var(--muted)}
+:root[data-theme=dark] :is(.topbar,.library,.inspector,.sidebar-footer,.tabs,.inspector-title,.inspector-section,.detail-row,.detail-stack,.modal-header,.modal-footer,.editor-header,.node-advanced,.node-add,.config-remote-form,.config-data-source,.config-project-other,.config-branch,.config-leaf,.config-overrides>div,.brick-doc){border-color:var(--border)}
+:root[data-theme=dark] :is(.button.ghost,.button.subtle,.icon-button,.column-add,.guide-actions button,.move-controls button,.node-remove,.config-file-actions button){background:#20354a;border-color:#3d5b74;color:#cae6f7}
+:root[data-theme=dark] :is(.button.ghost,.button.subtle,.icon-button,.column-add,.guide-actions button,.move-controls button,.node-remove,.config-file-actions button):hover{background:#29465f;border-color:#66abd7}
+:root[data-theme=dark] .button.primary{background:#2479b5;color:#fff;box-shadow:0 4px 12px #05132066}
+:root[data-theme=dark] .button.primary:hover{background:#338ac5}
+:root[data-theme=dark] :is(.badge.neutral,.badge.connected,.count,.column-title span,.stat-icon,.item-icon,.inspector-icon,.job-icon,.job-queue,.config-file-index,.config-source,.brick-category,.step-index,.guide-progress){background:#203a52;color:#a5d9f7}
+:root[data-theme=dark] .dirty{background:#493d29;color:#f3d597}
+:root[data-theme=dark] :is(.search,.library-filter select,.filename,.stat,.pipeline-item,.step,.job-entry,.job-details,.builder-left,.brick-details,.builder-step,.brick-entry,.recipe-story,.story-figure,.recipe-form-section,.config-file,.config-stats>div,.config-project,.config-settings-card,.config-overrides,.script-picker,.script-result,.run-review,.recipe-preview,.profile-create,.config-empty){background:#192b3e;border-color:var(--border);color:var(--ink);box-shadow:none}
+:root[data-theme=dark] :is(.search input,.brick-search,.script-picker input,.field input,.field textarea,.form-grid input,.form-grid select,.inspector-content .field select,.node-editor .field select,.brick-param textarea,.recipe-modal .form-grid input,.recipe-modal .form-grid select,.recipe-modal .form-grid textarea,.config-remote-form input,.esgf-search input,.esgf-search select,.profile-create input,.builder-toolbar select){background:#102033;border-color:#3d5a73;color:var(--ink)}
+:root[data-theme=dark] .search input{background:transparent}
+:root[data-theme=dark] :is(input,textarea)::placeholder{color:#8da8bd;opacity:1}
+:root[data-theme=dark] :is(input,textarea,select):focus{border-color:#66b5e5;outline-color:#66b5e5;box-shadow:0 0 0 3px #4799cf40}
+:root[data-theme=dark] :is(.field,.form-grid label,.builder-toolbar label,.builder-toolbar .order-toggle,.config-remote-form label,.auth-card label,.profile-create label){color:#b1ccdf}
+:root[data-theme=dark] .recipe-entry{color:#d6e8f4}
+:root[data-theme=dark] :is(.recipe-entry:hover,.pipeline-item:hover,.step:hover,.job-entry:hover,.builder-step:hover,.brick-entry:hover,.script-result:hover){background:#223b52;border-color:#5e9ec8}
+:root[data-theme=dark] :is(.recipe-entry.active,.pipeline-item.selected,.builder-step.active,.brick-entry.active){background:#1e4564;border-color:#63b5e9;color:#f0f8ff}
+:root[data-theme=dark] .pipeline-item.related{background:#1c3449;border-color:#4e9fd3}
+:root[data-theme=dark] .pipeline-item.dimmed{opacity:.42}
+:root[data-theme=dark] .pipeline{background:#122234;border-color:var(--border)}
+:root[data-theme=dark] :is(.pipeline-item small,.item-arrow,.step-index,.detail-stack code,.config-file-name small){color:#a8c2d5}
+:root[data-theme=dark] :is(.tab,.editor-header,.builder-toolbar,.validation-status,.config-status){color:#9dcbe9}
+:root[data-theme=dark] :is(.tab:hover,.tab.active,.config-data-source summary,.config-project-other summary,.config-branch summary,.config-overrides summary,.node-advanced summary,.node-add summary){color:#7ac6f7}
+:root[data-theme=dark] :is(.editor-header,.builder-toolbar,.config-import,.recipe-guide,.story-overview,.esgf-search,.yaml-feedback.issue){background:#192e42;border-color:var(--border);color:var(--ink)}
+:root[data-theme=dark] .yaml-tab textarea{background:#0f1c2a;color:#dceaf4}
+:root[data-theme=dark] .yaml-feedback.error{background:#422b31;color:#ffd6cf;border-color:#774750}
+:root[data-theme=dark] :is(.recipe-story,.recipe-guide){background:linear-gradient(130deg,#192e42,#14273a)}
+:root[data-theme=dark] :is(.story-description,.story-meta dd,.story-overview p,.story-references li,.story-references summary,.recipe-story a,.story-figure figcaption,.recipe-form-heading p,.recipe-form-hint,.config-leaf-key,.config-leaf-value,.config-overrides code){color:#bfd7e8}
+:root[data-theme=dark] :is(.story-meta dt,.story-eyebrow,.figure-source,.recipe-form-heading>span,.config-file-name strong,.config-stats span,.config-project h3 small){color:#9ec8e2}
+:root[data-theme=dark] :is(.recipe-form-heading>span,.esgf-result,.config-file-index){background:#25435c}
+:root[data-theme=dark] :is(.esgf-result,.script-result,.config-file,.config-stats>div){border-color:var(--border)}
+:root[data-theme=dark] :is(.esgf-status,.esgf-result span,.esgf-result small,.config-file-name small,.config-child-count,.config-source,.config-redacted){color:#a8c2d5}
+:root[data-theme=dark] :is(.brick-doc pre,.script-preview pre,.log-grid pre,.script-viewer-code){background:#0b1b2a;color:#d8ebf7}
+:root[data-theme=dark] .script-code-line::before{background:#0b1b2a;border-color:#35536d}
+:root[data-theme=dark] :is(.brick-doc,.script-preview,.script-picker,.config-overrides,.config-empty){border-color:var(--border);color:#b7d3e5}
+:root[data-theme=dark] :is(.run-review,.script-picker,.profile-create,.config-import){background:#192e42}
+:root[data-theme=dark] :is(.review-check,.story-references,.config-leaf,.config-overrides>div){border-color:var(--border)}
+:root[data-theme=dark] :is(.auth-gate){background:#0d1723}
+:root[data-theme=dark] :is(.auth-card p,.auth-card .auth-error,.script-viewer-status){color:#bdd4e5}
+:root[data-theme=dark] .auth-card input{background:#102033;border-color:#3d5a73;color:var(--ink)}
+:root[data-theme=dark] .toast{background:#245577;color:#fff}
+:root[data-theme=dark] .modal-backdrop{background:#06101ec9}
+:root[data-theme=dark] :is(.story-meta code,.story-overview strong,.editor-header strong,.script-result small){color:#b8dcf3}

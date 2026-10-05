@@ -8,6 +8,16 @@ const realmLabel = (realm) => realmNames[realm] || realm;
 const state = { yaml: '', summary: null, name: '', libraryInfo: null, dirty: false, selected: null, jobs: [], selectedJob: null, parseTimer: null, draftTimer: null, figureUrl: null, figureSource: null, figureRequest: 0, catalogue: null, builderProfile: '', builderBrick: '', builderEditing: false, isNewRecipe: false, recipePreviewTimer: null, recipePreviewVersion: 0, configFiles: [], configSummary: null, configVersion: 0 };
 let accessToken = sessionStorage.getItem('esmval-gui-access-token') || '';
 const draftKey = 'esmval-gui-recipe-draft';
+function setTheme(theme) {
+  const dark = theme === 'dark';
+  document.documentElement.dataset.theme = dark ? 'dark' : 'light';
+  $('themeToggle').innerHTML = dark ? '<span aria-hidden="true">☀</span><span class="theme-label">Day</span>' : '<span aria-hidden="true">☾</span><span class="theme-label">Night</span>';
+  $('themeToggle').setAttribute('aria-label', dark ? 'Switch to day mode' : 'Switch to night mode');
+  $('themeToggle').setAttribute('aria-pressed', String(dark));
+  try { localStorage.setItem('esmval-studio-theme', dark ? 'dark' : 'light'); } catch (_) {}
+}
+setTheme(document.documentElement.dataset.theme);
+$('themeToggle').addEventListener('click', () => setTheme(document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark'));
 function persistDraft() {
   clearTimeout(state.draftTimer);
   if (!state.dirty || !state.yaml) { sessionStorage.removeItem(draftKey); return; }

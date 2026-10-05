@@ -26,6 +26,8 @@ ssh -L 8765:127.0.0.1:8765 user@your-gui-host
 
 Open <http://127.0.0.1:8765> in a browser on your computer. The GUI host needs outbound HTTPS access for ESGF lookup and outbound SSH access to Gadi for submission.
 
+Use the **Night** button in the header to switch to the dark blue theme. The choice is saved in that browser and can be changed back with **Day**.
+
 ### Optional paths and state
 
 Set these environment variables before starting the server when your checkouts are elsewhere:

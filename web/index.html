@@ -4,7 +4,8 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>ESMValTool Studio</title>
-  <link rel="stylesheet" href="/style.css?v=script-viewer">
+  <script>try { if (localStorage.getItem('esmval-studio-theme') === 'dark') document.documentElement.dataset.theme = 'dark'; } catch (_) {}</script>
+  <link rel="stylesheet" href="/style.css?v=night-mode-2">
 </head>
 <body>
   <div class="shell">
@@ -12,6 +13,7 @@
       <div class="brand"><img src="/esmvaltool-logo.png" alt="ESMValTool"><span class="brand-product">STUDIO</span></div>
       <div class="top-actions">
         <span id="connectionBadge" class="badge neutral">Offline editor</span>
+        <button id="themeToggle" class="button ghost theme-toggle" type="button" aria-label="Switch to night mode" aria-pressed="false"><span aria-hidden="true">☾</span><span class="theme-label">Night</span></button>
         <button id="newRecipeButton" class="button subtle" type="button">+ New recipe</button>
         <button id="openFile" class="button ghost">Open YAML</button>
         <button id="saveFile" class="button ghost">Download YAML</button>
@@ -150,6 +152,6 @@
     </div>
   </div>
   <input id="fileInput" type="file" accept=".yml,.yaml,text/yaml" hidden>
-  <script src="/app.js?v=scripts-top-2" defer></script>
+  <script src="/app.js?v=night-mode-1" defer></script>
 </body>
 </html>
