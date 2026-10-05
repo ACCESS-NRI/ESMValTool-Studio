@@ -641,7 +641,13 @@ function selectItem(kind, id) {
     return;
   }
   if (kind === 'diagnostic') {
-    $('inspectorContent').innerHTML = `<div class="inspector-title"><span class="inspector-icon">◇</span><h3>${escapeHtml(item.label)}</h3><p>Diagnostic · ${item.variables.length} variables</p></div><div class="inspector-section"><div class="eyebrow">VARIABLES</div>${item.variables.map((variable) => `<div class="detail-row"><strong>${escapeHtml(variableListName(variable))}</strong><span>${escapeHtml(variable.profile)}</span></div>`).join('') || '<p class="empty">No variables</p>'}</div><div class="inspector-section"><div class="eyebrow">SCRIPTS</div>${item.scripts.map((s, index) => `<div class="detail-stack diagnostic-script"><strong>${escapeHtml(s.name)}</strong><code>${escapeHtml(s.path || 'No script path')}</code>${s.path ? `<button class="button subtle small-button view-script" type="button" data-script-index="${index}">View source ↗</button>` : ''}</div>`).join('') || '<p class="empty">No scripts</p>'}</div>${item.ancestors.length ? `<div class="inspector-section"><div class="eyebrow">ANCESTORS</div><p>${escapeHtml(item.ancestors.join(', '))}</p></div>` : ''}<p class="hint">Select a variable in the pipeline to assign its preprocessor.</p>`;
+    const scriptRows = item.scripts.map((script, index) => `<div class="detail-stack diagnostic-script"><strong>${escapeHtml(script.name)}</strong><code>${escapeHtml(script.path || 'No script path')}</code>${script.path ? `<button class="button subtle small-button view-script" type="button" data-script-index="${index}">View source ↗</button>` : ''}</div>`).join('') || '<p class="empty">No scripts</p>';
+    const variableRows = item.variables.map((variable) => `<div class="detail-row"><strong>${escapeHtml(variableListName(variable))}</strong><span>${escapeHtml(variable.profile)}</span></div>`).join('') || '<p class="empty">No variables</p>';
+    $('inspectorContent').innerHTML = `<div class="inspector-title"><span class="inspector-icon">◇</span><h3>${escapeHtml(item.label)}</h3><p>Diagnostic · ${item.variables.length} variables</p></div>
+      <div class="inspector-section"><div class="eyebrow">SCRIPTS</div>${scriptRows}</div>
+      <div class="inspector-section"><div class="eyebrow">VARIABLES</div>${variableRows}</div>
+      ${item.ancestors.length ? `<div class="inspector-section"><div class="eyebrow">ANCESTORS</div><p>${escapeHtml(item.ancestors.join(', '))}</p></div>` : ''}
+      <p class="hint">Select a variable in the pipeline to assign its preprocessor.</p>`;
     $('inspectorContent').querySelectorAll('.view-script').forEach((button) => {
       button.addEventListener('click', () => openScriptViewer(item.scripts[Number(button.dataset.scriptIndex)]));
     });
