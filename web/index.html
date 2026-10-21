@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>ESMValTool Studio</title>
   <script>try { if (localStorage.getItem('esmval-studio-theme') === 'dark') document.documentElement.dataset.theme = 'dark'; } catch (_) {}</script>
-  <link rel="stylesheet" href="/style.css?v=ssh-host-1">
+  <link rel="stylesheet" href="/style.css?v=library-filters-3">
 </head>
 <body>
   <div class="shell">
@@ -25,6 +25,15 @@
         <div class="panel-heading"><div><div class="eyebrow">EXPLORE</div><h2>Recipe library</h2></div><span id="recipeCount" class="count">0</span></div>
         <label class="search"><span>⌕</span><input id="recipeSearch" placeholder="Search recipes" autocomplete="off"></label>
         <label class="library-filter">Realm<select id="realmFilter" aria-label="Filter recipes by realm"><option value="">All realms</option></select></label>
+        <details id="libraryDataFilters" class="library-data-filters"><summary>Data filters <span id="filterActiveCount"></span></summary>
+          <div class="library-filters-body">
+            <details class="library-facet" open><summary>Data project</summary><input id="projectFilterSearch" type="search" aria-label="Find data project" placeholder="Find CMIP or observations" autocomplete="off"><div id="projectFilterOptions" class="facet-options"></div></details>
+            <details class="library-facet"><summary>Dataset</summary><input id="datasetFilterSearch" type="search" aria-label="Find dataset" placeholder="Find a dataset" autocomplete="off"><div id="datasetFilterOptions" class="facet-options"></div></details>
+            <details class="library-facet"><summary>Variable</summary><input id="variableFilterSearch" type="search" aria-label="Find variable" placeholder="Find a variable" autocomplete="off"><div id="variableFilterOptions" class="facet-options"></div></details>
+          </div>
+        </details>
+        <div id="activeLibraryFilters" class="active-library-filters" hidden></div>
+        <button id="clearLibraryFilters" class="clear-library-filters" type="button" hidden>Clear filters</button>
         <div id="recipeList" class="recipe-list"><p class="empty">Loading recipes…</p></div>
         <div class="sidebar-footer"><div class="status-dot"></div><span id="libraryStatus">Checking ESMValTool collection</span></div>
       </aside>
@@ -155,6 +164,6 @@
     </div>
   </div>
   <input id="fileInput" type="file" accept=".yml,.yaml,text/yaml" hidden>
-  <script src="/app.js?v=ssh-host-1" defer></script>
+  <script src="/app.js?v=library-filters-3" defer></script>
 </body>
 </html>

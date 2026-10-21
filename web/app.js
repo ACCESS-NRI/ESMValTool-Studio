@@ -5,6 +5,8 @@ const variableGroup = (item) => item.name !== variableName(item) ? `Group ${item
 const variableListName = (item) => variableGroup(item) ? `${variableName(item)} (${item.name})` : variableName(item);
 const realmNames = { atmos: 'Atmosphere', atmosChem: 'Atmospheric chemistry', land: 'Land', ocean: 'Ocean', ocnBgchem: 'Ocean biogeochemistry', seaIce: 'Sea ice' };
 const realmLabel = (realm) => realmNames[realm] || realm;
+const observationProjects = new Set(['obs', 'obs6', 'obs4mips', 'ana4mips']);
+const libraryFilters = { projects: new Set(), datasets: new Set(), variables: new Set() };
 const state = { yaml: '', summary: null, name: '', libraryInfo: null, dirty: false, selected: null, jobs: [], selectedJob: null, parseTimer: null, draftTimer: null, figureUrl: null, figureSource: null, figureRequest: 0, catalogue: null, builderProfile: '', builderBrick: '', builderEditing: false, isNewRecipe: false, recipePreviewTimer: null, recipePreviewVersion: 0, configFiles: [], configSummary: null, configVersion: 0 };
 let accessToken = sessionStorage.getItem('esmval-gui-access-token') || '';
 const draftKey = 'esmval-gui-recipe-draft';
@@ -765,13 +767,81 @@ function renderRealmFilter() {
   const options = [...counts].sort(([a], [b]) => realmLabel(a).localeCompare(realmLabel(b)));
   $('realmFilter').innerHTML = `<option value="">All realms (${state.library.length})</option>${options.map(([realm, count]) => `<option value="${escapeHtml(realm)}">${escapeHtml(realmLabel(realm))} (${count})</option>`).join('')}<option value="__unspecified__">Realm unspecified (${unspecified})</option>`;
 }
+function libraryFacetOptions(facet) {
+  const counts = new Map();
+  for (const item of state.library || []) {
+    for (const value of new Set(item[facet] || [])) counts.set(value, (counts.get(value) || 0) + 1);
+  }
+  const options = [...counts].map(([value, count]) => ({value, count}));
+  if (facet === 'projects') {
+    const count = (state.library || []).filter((item) => (item.projects || []).some((project) => observationProjects.has(project.toLowerCase()))).length;
+    if (count) options.push({value: '__observations__', label: 'All observations', count});
+  }
+  return options;
+}
+function renderLibraryFacetOptions(facet) {
+  const singular = {projects: 'project', datasets: 'dataset', variables: 'variable'}[facet];
+  const query = $(`${singular}FilterSearch`).value.toLowerCase().trim();
+  const container = $(`${singular}FilterOptions`);
+  const selected = libraryFilters[facet];
+  const options = libraryFacetOptions(facet).filter((item) => (item.label || item.value).toLowerCase().includes(query));
+  let groups;
+  if (facet === 'projects') {
+    const isObservation = (item) => item.value === '__observations__' || observationProjects.has(item.value.toLowerCase());
+    groups = [
+      ['CMIP', options.filter((item) => /^CMIP\d+$/i.test(item.value)).sort((a, b) => a.value.localeCompare(b.value, undefined, {numeric: true}))],
+      ['Observations / reanalysis', options.filter(isObservation).sort((a, b) => a.value === '__observations__' ? -1 : b.value === '__observations__' ? 1 : a.value.localeCompare(b.value))],
+      ['Other projects', options.filter((item) => !/^CMIP\d+$/i.test(item.value) && !isObservation(item)).sort((a, b) => a.value.localeCompare(b.value))],
+    ];
+  } else {
+    options.sort((a, b) => Number(selected.has(b.value)) - Number(selected.has(a.value)) || b.count - a.count || a.value.localeCompare(b.value));
+    const limit = query ? 30 : 12;
+    groups = [['', options.slice(0, limit)]];
+    if (options.length > limit) groups.push(['hint', [{value: '', label: query ? 'Refine your search for more results.' : `Search to see ${options.length - limit} more.`}]]);
+  }
+  container.innerHTML = groups.map(([heading, items]) => !items.length ? '' : heading === 'hint'
+    ? `<p class="facet-option-hint">${escapeHtml(items[0].label)}</p>`
+    : `${heading ? `<div class="facet-group-name">${escapeHtml(heading)}</div>` : ''}${items.map((item) => `<label class="facet-option ${item.value === '__observations__' ? 'facet-option-wide' : ''}"><input type="checkbox" data-value="${escapeHtml(item.value)}" ${selected.has(item.value) ? 'checked' : ''}><span>${escapeHtml(item.label || item.value)}</span><small>${item.count}</small></label>`).join('')}`).join('') || '<p class="facet-option-hint">No matching options.</p>';
+  container.querySelectorAll('input[type="checkbox"]').forEach((input) => input.addEventListener('change', () => {
+    if (input.checked) selected.add(input.dataset.value); else selected.delete(input.dataset.value);
+    renderLibrary();
+  }));
+}
+function matchesLibraryFilter(item, facet) {
+  const selected = libraryFilters[facet];
+  if (!selected.size) return true;
+  return [...selected].some((value) => value === '__observations__'
+    ? (item.projects || []).some((project) => observationProjects.has(project.toLowerCase()))
+    : (item[facet] || []).some((candidate) => candidate.toLowerCase() === value.toLowerCase()));
+}
+function renderActiveLibraryFilters() {
+  const chips = [];
+  const realm = $('realmFilter').value;
+  if (realm) chips.push({facet: 'realm', value: realm, label: realm === '__unspecified__' ? 'Realm unspecified' : realmLabel(realm)});
+  for (const facet of Object.keys(libraryFilters)) {
+    for (const value of libraryFilters[facet]) chips.push({facet, value, label: value === '__observations__' ? 'All observations' : value});
+  }
+  $('filterActiveCount').textContent = chips.length ? String(chips.length) : '';
+  $('activeLibraryFilters').hidden = !chips.length;
+  $('activeLibraryFilters').innerHTML = chips.map((chip) => `<button type="button" class="filter-chip" data-facet="${chip.facet}" data-value="${escapeHtml(chip.value)}" aria-label="Remove ${escapeHtml(chip.label)} filter">${escapeHtml(chip.label)} <span aria-hidden="true">×</span></button>`).join('');
+  $('activeLibraryFilters').querySelectorAll('button').forEach((button) => button.addEventListener('click', () => {
+    if (button.dataset.facet === 'realm') $('realmFilter').value = '';
+    else libraryFilters[button.dataset.facet].delete(button.dataset.value);
+    renderLibrary();
+  }));
+  $('clearLibraryFilters').hidden = !(chips.length || $('recipeSearch').value.trim());
+}
 function renderLibrary() {
   const query = $('recipeSearch').value.toLowerCase().trim();
   const realm = $('realmFilter').value;
-  const matching = (state.library || []).filter((item) => item.path.toLowerCase().includes(query) && (!realm || (realm === '__unspecified__' ? !item.realms?.length : item.realms?.includes(realm))));
+  const matching = (state.library || []).filter((item) => item.path.toLowerCase().includes(query)
+    && (!realm || (realm === '__unspecified__' ? !item.realms?.length : item.realms?.includes(realm)))
+    && Object.keys(libraryFilters).every((facet) => matchesLibraryFilter(item, facet)));
   $('recipeCount').textContent = matching.length;
-  $('recipeList').innerHTML = matching.map((item) => `<button class="recipe-entry ${state.name === item.path ? 'active' : ''}" data-path="${escapeHtml(item.path)}"><span class="recipe-entry-name">${escapeHtml(item.name.replace(/^recipe_/, '').replace(/\.yml$/, '').replaceAll('_', ' '))}</span><span class="recipe-entry-group" title="${escapeHtml(item.group)}">${escapeHtml(item.group === '.' ? 'Root' : item.group)}</span><span class="recipe-entry-realm">${escapeHtml(item.realms?.length ? item.realms.map(realmLabel).join(' · ') : 'Realm unspecified')}</span></button>`).join('') || '<p class="empty">No recipes found in this realm.</p>';
+  $('recipeList').innerHTML = matching.map((item) => `<button class="recipe-entry ${state.name === item.path ? 'active' : ''}" data-path="${escapeHtml(item.path)}"><span class="recipe-entry-name">${escapeHtml(item.name.replace(/^recipe_/, '').replace(/\.yml$/, '').replaceAll('_', ' '))}</span><span class="recipe-entry-group" title="${escapeHtml(item.group)}">${escapeHtml(item.group === '.' ? 'Root' : item.group)}</span><span class="recipe-entry-realm">${escapeHtml(item.realms?.length ? item.realms.map(realmLabel).join(' · ') : 'Realm unspecified')}</span></button>`).join('') || '<p class="empty">No recipes match these filters.</p>';
   $('recipeList').querySelectorAll('.recipe-entry').forEach((button) => button.addEventListener('click', () => openLibraryRecipe(button.dataset.path)));
+  for (const facet of Object.keys(libraryFilters)) renderLibraryFacetOptions(facet);
+  renderActiveLibraryFilters();
 }
 async function openLibraryRecipe(path) {
   if (state.name === path && state.yaml) return;
@@ -969,6 +1039,23 @@ $('customOrder').addEventListener('change', async (event) => {
 });
 $('recipeSearch').addEventListener('input', renderLibrary);
 $('realmFilter').addEventListener('change', renderLibrary);
+document.querySelectorAll('.library-facet').forEach((section) => section.addEventListener('toggle', () => {
+  if (section.open) document.querySelectorAll('.library-facet').forEach((other) => { if (other !== section) other.open = false; });
+}));
+for (const facet of Object.keys(libraryFilters)) {
+  const singular = {projects: 'project', datasets: 'dataset', variables: 'variable'}[facet];
+  $(`${singular}FilterSearch`).addEventListener('input', () => renderLibraryFacetOptions(facet));
+}
+$('clearLibraryFilters').addEventListener('click', () => {
+  $('recipeSearch').value = '';
+  $('realmFilter').value = '';
+  for (const facet of Object.keys(libraryFilters)) {
+    libraryFilters[facet].clear();
+    const singular = {projects: 'project', datasets: 'dataset', variables: 'variable'}[facet];
+    $(`${singular}FilterSearch`).value = '';
+  }
+  renderLibrary();
+});
 $('yamlEditor').addEventListener('input', () => { state.yaml = $('yamlEditor').value; state.dirty = true; $('dirtyMark').hidden = false; persistDraft(); clearTimeout(state.parseTimer); state.parseTimer = setTimeout(parseCurrent, 400); });
 $('yamlEditor').addEventListener('keydown', (event) => {
   if (event.key === 'Tab' && !event.shiftKey) {

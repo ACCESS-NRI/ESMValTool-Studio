@@ -146,6 +146,31 @@ diagnostics:
             self.assertEqual(items["recipe_mixed.yml"]["realms"], ["atmos", "ocean", "seaIce"])
             self.assertEqual(items["recipe_untagged.yml"]["realms"], [])
 
+    def test_library_filters_index_projects_datasets_and_short_names(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            path = root / "recipe_mixed.yml"
+            path.write_text("""datasets:
+  - {dataset: ModelA, project: CMIP6}
+  - {dataset: ModelB}
+diagnostics:
+  maps:
+    realms: [atmos]
+    additional_datasets: [{dataset: ERA5, project: OBS6}]
+    variables:
+      cmip5: {short_name: tas, project: CMIP5, additional_datasets: [{dataset: HadCRUT, project: OBS}]}
+      rainfall: {short_name: pr, project: obs4MIPs}
+""")
+            item = list_recipes(root)[0]
+            self.assertEqual(set(item["projects"]), {"CMIP5", "CMIP6", "OBS", "OBS6", "obs4MIPs"})
+            self.assertEqual(item["datasets"], ["ERA5", "HadCRUT", "ModelA", "ModelB"])
+            self.assertEqual(item["variables"], ["pr", "tas"])
+            self.assertEqual(item["realms"], ["atmos"])
+            path.write_text("diagnostics: {maps: {variables: {tos: {}}}}\n")
+            changed = list_recipes(root)[0]
+            self.assertEqual(changed["projects"], [])
+            self.assertEqual(changed["variables"], ["tos"])
+
     def test_create_pipeline_components_and_dataset_scopes(self):
         source = "# keep header\ndocumentation: {title: Creation}\n"
         source, diagnostic_path = create_node(source, "diagnostic", "maps", script_name="plot",

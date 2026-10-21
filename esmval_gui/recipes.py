@@ -275,27 +275,62 @@ def available_recipe_root() -> Path | None:
 
 
 @lru_cache(maxsize=512)
-def _declared_realms(path: Path, mtime_ns: int, size: int) -> tuple[str, ...]:
-    """Read the realm tags actually declared by a recipe's diagnostics."""
+def _library_facets(path: Path, mtime_ns: int, size: int) -> dict[str, tuple[str, ...]]:
+    """Index declared data facets and realms from one bounded recipe read."""
+    empty = {key: () for key in ("realms", "projects", "datasets", "variables")}
     if size > MAX_RECIPE_BYTES:
-        return ()
+        return empty
     try:
         recipe = pyyaml.safe_load(path.read_text(encoding="utf-8"))
     except (OSError, UnicodeError, pyyaml.YAMLError):
-        return ()
+        return empty
+    if not isinstance(recipe, dict):
+        return empty
     diagnostics = recipe.get("diagnostics") if isinstance(recipe, dict) else None
-    if not isinstance(diagnostics, dict):
-        return ()
-    realms = set()
+    diagnostics = diagnostics if isinstance(diagnostics, dict) else {}
+    facets = {key: set() for key in empty}
+
+    def add_project(value):
+        if isinstance(value, str) and value.strip():
+            facets["projects"].add(value.strip())
+
+    def add_datasets(values):
+        if not isinstance(values, list):
+            return
+        for value in values:
+            if isinstance(value, dict):
+                name = value.get("dataset")
+                add_project(value.get("project"))
+            else:
+                name = value
+            if isinstance(name, str) and name.strip():
+                facets["datasets"].add(name.strip())
+
+    add_project(recipe.get("project"))
+    add_datasets(recipe.get("datasets"))
     for diagnostic in diagnostics.values():
         if not isinstance(diagnostic, dict):
             continue
+        add_project(diagnostic.get("project"))
+        add_datasets(diagnostic.get("additional_datasets"))
         values = diagnostic.get("realms") or []
         if isinstance(values, str):
             values = [values]
         if isinstance(values, list):
-            realms.update(value.strip() for value in values if isinstance(value, str) and value.strip())
-    return tuple(sorted(realms, key=str.casefold))
+            facets["realms"].update(value.strip() for value in values if isinstance(value, str) and value.strip())
+        variables = diagnostic.get("variables")
+        if not isinstance(variables, dict):
+            continue
+        for key, variable in variables.items():
+            if isinstance(variable, dict):
+                add_project(variable.get("project"))
+                add_datasets(variable.get("additional_datasets"))
+                name = variable.get("short_name") or key
+            else:
+                name = key
+            if isinstance(name, str) and name.strip():
+                facets["variables"].add(name.strip())
+    return {key: tuple(sorted(values, key=str.casefold)) for key, values in facets.items()}
 
 
 def list_recipes(root: Path, query: str = "") -> list[dict]:
@@ -306,9 +341,10 @@ def list_recipes(root: Path, query: str = "") -> list[dict]:
         if query not in relative.casefold():
             continue
         stat = path.stat()
+        facets = _library_facets(path, stat.st_mtime_ns, stat.st_size)
         items.append({"path": relative, "name": path.name,
                       "group": str(path.parent.relative_to(root)),
-                      "realms": list(_declared_realms(path, stat.st_mtime_ns, stat.st_size))})
+                      **{key: list(values) for key, values in facets.items()}})
     return items
 
 
