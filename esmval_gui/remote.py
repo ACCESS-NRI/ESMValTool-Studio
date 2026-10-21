@@ -5,6 +5,7 @@ import posixpath
 import re
 import shlex
 import subprocess
+import sys
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
@@ -174,19 +175,35 @@ def ssh_target(host: str, username: str = "") -> str:
 
 
 def ssh_args(host: str) -> list[str]:
-    # Explicit -F avoids a broken global SSH config on some Linux desktops while
-    # preserving the user's aliases, keys, ProxyJump and MFA configuration.
+    # Keep user aliases, keys and ProxyJump settings. /dev/null is a POSIX path;
+    # on Windows, OpenSSH reads its normal user config when -F is omitted.
     config = Path.home() / ".ssh" / "config"
-    return ["ssh", "-T", "-F", str(config if config.is_file() else Path("/dev/null")),
-            "-o", "BatchMode=yes", "-o", "ForwardX11=no", "-o", "ConnectTimeout=10", host]
+    args = ["ssh", "-T"]
+    if config.is_file():
+        args += ["-F", str(config)]
+    elif sys.platform != "win32":
+        args += ["-F", "/dev/null"]
+    return args + ["-o", "BatchMode=yes", "-o", "ForwardX11=no", "-o", "ConnectTimeout=10", host]
 
 
 def ssh(host: str, command: str, data: str | None = None, timeout: int = 35) -> str:
-    result = subprocess.run(ssh_args(host) + [command], input=data, text=True,
-                            capture_output=True, timeout=timeout, check=False)
+    try:
+        payload = data.encode("utf-8") if data is not None else None
+        result = subprocess.run(ssh_args(host) + [command], input=payload, capture_output=True,
+                                timeout=timeout, check=False)
+    except UnicodeError as exc:
+        raise RuntimeError("Recipe or script text could not be encoded as UTF-8") from exc
+    except FileNotFoundError as exc:
+        raise RuntimeError("OpenSSH client (ssh) was not found on the GUI server. Install or enable it and add ssh to PATH.") from exc
+    except subprocess.TimeoutExpired as exc:
+        raise RuntimeError(f"SSH to {host} timed out after {timeout} seconds") from exc
+    except OSError as exc:
+        raise RuntimeError(f"Could not start SSH on the GUI server: {exc}") from exc
+    stdout = result.stdout.decode("utf-8", errors="replace").strip()
     if result.returncode:
-        raise RuntimeError((result.stderr or result.stdout).strip()[-1500:] or f"SSH exit {result.returncode}")
-    return result.stdout.strip()
+        stderr = result.stderr.decode("utf-8", errors="replace").strip()
+        raise RuntimeError((stderr or stdout)[-1500:] or f"SSH exit {result.returncode}")
+    return stdout
 
 
 def probe(host: str, command: str = "esmvaltool", setup: str = "") -> dict:
@@ -276,16 +293,26 @@ def inspect_scripts(host: str, executable: str, paths: list[str]) -> dict:
 
 def submit(settings: RemoteSettings, recipe: str, state_dir: Path, title: str = "recipe.yml") -> dict:
     validate_resources(settings)
+    state_dir.mkdir(parents=True, exist_ok=True)
     run_id = uuid.uuid4().hex[:12]
     remote_dir = posixpath.join(settings.work_dir, run_id)
     recipe_path = posixpath.join(remote_dir, "recipe.yml")
     job_path = posixpath.join(remote_dir, "job.pbs")
     script = script_for(settings, recipe_path, remote_dir)
     remote = shlex.quote(remote_dir)
-    ssh(settings.ssh_target, f"mkdir -p {remote} && chmod 700 {remote}")
-    ssh(settings.ssh_target, f"cat > {shlex.quote(recipe_path)}", recipe)
-    ssh(settings.ssh_target, f"cat > {shlex.quote(job_path)}", script)
-    response = ssh(settings.ssh_target, f"qsub {shlex.quote(job_path)}")
+    for stage, command, data in (
+        ("create the working directory", f"mkdir -p {remote} && chmod 700 {remote}", None),
+        ("upload the recipe", f"cat > {shlex.quote(recipe_path)}", recipe),
+        ("upload the PBS script", f"cat > {shlex.quote(job_path)}", script),
+    ):
+        try:
+            ssh(settings.ssh_target, command, data)
+        except RuntimeError as exc:
+            raise RuntimeError(f"Could not {stage} on Gadi: {exc}") from exc
+    try:
+        response = ssh(settings.ssh_target, f"qsub {shlex.quote(job_path)}")
+    except RuntimeError as exc:
+        raise RuntimeError(f"Could not queue the PBS job on Gadi: {exc}. If SSH disconnected during qsub, check qstat before retrying.") from exc
     job_id = response.splitlines()[-1].strip()
     if not JOB_RE.fullmatch(job_id):
         raise RuntimeError(f"qsub returned an unexpected job ID: {response}")
@@ -295,7 +322,6 @@ def submit(settings: RemoteSettings, recipe: str, state_dir: Path, title: str = 
         "submitted_at": datetime.now(timezone.utc).isoformat(),
         "project": settings.project, "queue": settings.queue,
     }
-    state_dir.mkdir(parents=True, exist_ok=True)
     (state_dir / f"{run_id}.json").write_text(json.dumps(record, indent=2), encoding="utf-8")
     return record
 

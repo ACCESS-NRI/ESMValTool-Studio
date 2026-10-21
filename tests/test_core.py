@@ -1,3 +1,4 @@
+import sys
 import tempfile
 import unittest
 from pathlib import Path
@@ -11,7 +12,7 @@ from esmval_gui.recipes import (add_script, available_recipe_root, build_recipe,
                                 edit_node, edit_node_fields, list_recipes, move_profile_step, parse_recipe, read_library_recipe,
                                 read_node, library_recipe_info,
                                 set_profile_order, set_variable_profile, summarize)
-from esmval_gui.remote import RemoteSettings, cancel, script_for, ssh_target, submit
+from esmval_gui.remote import RemoteSettings, cancel, script_for, ssh, ssh_args, ssh_target, submit
 from esmval_gui.scripts_catalogue import read_source, search as search_scripts
 
 
@@ -482,6 +483,32 @@ diagnostics: {maps: {variables: {tas: {}}, scripts: {plot: {script: examples/dia
         with self.assertRaises(ValidationError):
             RemoteSettings(username="bad user")
 
+    def test_ssh_args_use_platform_config_paths(self):
+        with tempfile.TemporaryDirectory() as tmp, patch("esmval_gui.remote.Path.home", return_value=Path(tmp)):
+            with patch("esmval_gui.remote.sys.platform", "win32"):
+                self.assertNotIn("-F", ssh_args("gadi.nci.org.au"))
+            with patch("esmval_gui.remote.sys.platform", "linux"):
+                self.assertEqual(ssh_args("gadi.nci.org.au")[2:4], ["-F", "/dev/null"])
+            config = Path(tmp) / ".ssh" / "config"
+            config.parent.mkdir()
+            config.write_text("Host gadi\n  HostName gadi.nci.org.au\n", encoding="utf-8")
+            with patch("esmval_gui.remote.sys.platform", "win32"):
+                self.assertEqual(ssh_args("gadi")[2:4], ["-F", str(config)])
+
+    def test_ssh_uploads_unicode_recipe_as_utf8(self):
+        source = "documentation: {description: 'Température océane'}\n"
+        with tempfile.TemporaryDirectory() as tmp:
+            receiver = Path(tmp) / "receive.py"
+            receiver.write_text("import sys\nprint(sys.stdin.buffer.read().hex())\n", encoding="utf-8")
+            with patch("esmval_gui.remote.ssh_args", return_value=[sys.executable, str(receiver)]):
+                received = ssh("gadi.nci.org.au", "cat > recipe.yml", source)
+        self.assertEqual(received, source.encode("utf-8").hex())
+
+    @patch("esmval_gui.remote.subprocess.run", side_effect=FileNotFoundError())
+    def test_missing_ssh_has_actionable_error(self, _run):
+        with self.assertRaisesRegex(RuntimeError, "OpenSSH client .* was not found"):
+            ssh("gadi.nci.org.au", "true")
+
     @patch("esmval_gui.remote.ssh")
     def test_submit_uploads_recipe_and_script_then_qsub(self, ssh):
         ssh.side_effect = ["", "", "", "12345.gadi-pbs"]
@@ -500,6 +527,21 @@ diagnostics: {maps: {variables: {tas: {}}, scripts: {plot: {script: examples/dia
             job = submit(settings, "documentation: {}\ndiagnostics: {}\n", Path(tmp))
             self.assertEqual(job["host"], "nciuser@gadi.nci.org.au")
             self.assertTrue(all(call.args[0] == job["host"] for call in ssh.call_args_list))
+
+    @patch("esmval_gui.remote.ssh")
+    def test_submit_reports_upload_stage_without_queueing(self, ssh):
+        ssh.side_effect = ["", RuntimeError("Permission denied")]
+        with tempfile.TemporaryDirectory() as tmp:
+            with self.assertRaisesRegex(RuntimeError, "Could not upload the recipe on Gadi: Permission denied"):
+                submit(self.settings(), "documentation: {}\n", Path(tmp))
+        self.assertEqual(ssh.call_count, 2)
+
+    @patch("esmval_gui.remote.ssh")
+    def test_submit_reports_qsub_failure(self, ssh):
+        ssh.side_effect = ["", "", "", RuntimeError("qsub: invalid project")]
+        with tempfile.TemporaryDirectory() as tmp:
+            with self.assertRaisesRegex(RuntimeError, "Could not queue the PBS job on Gadi: qsub: invalid project"):
+                submit(self.settings(), "documentation: {}\n", Path(tmp))
 
     @patch("esmval_gui.remote.status", return_value={"state": "queued"})
     @patch("esmval_gui.remote.ssh")

@@ -15,6 +15,15 @@ python -m venv .venv
 .venv/bin/python -m esmval_gui
 ```
 
+On Windows, run the equivalent commands in PowerShell:
+
+```powershell
+py -3 -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -r requirements.txt
+.\.venv\Scripts\python.exe -m unittest discover -s tests -q
+.\.venv\Scripts\python.exe -m esmval_gui
+```
+
 The app opens at <http://127.0.0.1:8765>. Use `--no-browser` to start it without opening a tab, or `--port 8766` to choose another port. On startup, the server prints a random access token in the terminal. Enter that token in the browser to unlock the GUI; it is kept in the tab's session storage and changes when the server restarts. For a managed deployment, set `ESMVAL_GUI_ACCESS_TOKEN` to a secret of at least 32 characters before starting the server. Do not put the token in a URL or a shared log.
 
 The server only accepts a loopback bind address. The API can submit and cancel Gadi jobs through your SSH account, so keep it on a trusted personal machine. For a remote GUI host, connect through an SSH tunnel instead of exposing the port:
@@ -50,13 +59,27 @@ export ESMVAL_GUI_CORE_ROOT=/path/to/ESMValCore/esmvalcore
 
 ### Connect to Gadi
 
-The GUI defaults to `gadi.nci.org.au`. Enter your NCI username in its separate optional field, or leave it blank to use the username configured for that host in `~/.ssh/config` on the GUI host. An SSH alias such as `gadi` also works if you have defined one. Check that non-interactive SSH works:
+The GUI defaults to `gadi.nci.org.au`. Enter your NCI username in its separate field, or leave it blank only when the SSH config on the GUI host sets `User` for that host. An SSH alias such as `gadi` also works if you have defined one. Check that non-interactive SSH works from the same machine and account that starts Studio:
 
 ```bash
-ssh -o BatchMode=yes gadi.nci.org.au 'command -v qsub'
+ssh -o BatchMode=yes your-nci-username@gadi.nci.org.au 'command -v qsub'
 ```
 
-If **Check Gadi connection** reports SSH authentication failure, load the private key configured for that host into your local SSH agent with `ssh-add /path/to/your/gadi-key`. Enter its passphrase in your terminal, not in the GUI. The corresponding public key must also be authorized for your NCI account. The GUI uses `BatchMode=yes`, so a password-only SSH login will not work.
+On Windows, run that check in PowerShell (use double quotes around the remote command). Windows 10/11 includes an OpenSSH client, but verify `Get-Command ssh` finds it. If the SSH agent service is stopped, start it in an Administrator PowerShell session, then load your key in your normal PowerShell session:
+
+```powershell
+# Administrator PowerShell, only if the service is disabled or stopped:
+Set-Service -Name ssh-agent -StartupType Manual
+Start-Service ssh-agent
+
+# Your normal PowerShell session; replace the key name:
+ssh-add "$env:USERPROFILE\.ssh\your_gadi_key"
+ssh -o BatchMode=yes your-nci-username@gadi.nci.org.au "command -v qsub"
+```
+
+On macOS and Linux, load the key with `ssh-add /path/to/your/gadi-key` before starting Studio. Enter the passphrase in the terminal, never in the GUI. The corresponding public key must be authorized for your NCI account. Studio uses `BatchMode=yes`, so password-only SSH login cannot submit jobs. If Studio runs in WSL, configure SSH and its agent inside WSL; if it runs on a remote GUI host, configure them on that host. A key loaded only on the browser machine is not available to a different GUI server.
+
+If **Queue job** fails, Studio keeps the error visible in the submission dialog and identifies whether it failed creating the Gadi directory, uploading the recipe or PBS script, or running `qsub`. A successful connection check only confirms SSH and PBS discovery; it does not test write access to the working directory or acceptance of the PBS resource request. If the connection drops during `qsub`, check `qstat` on Gadi before retrying to avoid a duplicate job.
 
 Use **Check Gadi connection** in the **Submit to Gadi** dialog. The Gadi account must have an NCI project, PBS access, an `esmvaltool` executable, and an ESMValTool user config with the data roots needed by the recipe. Set the executable path or a one-line environment setup command in the dialog if it is not already on `PATH`. The GUI never requests, receives, or stores the private key or passphrase. In the dialog, choose the remote working directory, storage projects, and config file or directory before submitting.
 

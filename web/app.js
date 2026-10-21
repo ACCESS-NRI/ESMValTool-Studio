@@ -908,6 +908,8 @@ function clearRunReview() {
   state.reviewSignature = null;
   $('runReview').hidden = true;
   $('runReview').replaceChildren();
+  $('submitError').hidden = true;
+  $('submitError').textContent = '';
   $('submitButton').textContent = 'Review & check ↗';
 }
 async function submitJob() {
@@ -927,10 +929,14 @@ async function submitJob() {
     return;
   }
   button.disabled = true; button.textContent = 'Submitting…';
+  $('submitError').hidden = true;
   try {
     const result = await post('/remote/submit', {yaml: state.yaml, settings: settings()});
     $('runModal').hidden = true; clearRunReview(); toast('Submitted PBS job ' + result.job_id); setTab('runs');
-  } catch (err) { toast(err.message, true); }
+  } catch (err) {
+    $('submitError').textContent = `Submission failed: ${err.message}`;
+    $('submitError').hidden = false;
+  }
   finally { button.disabled = false; if (state.reviewSignature === signature) button.textContent = 'Queue job ↗'; }
 }
 async function refreshJobs() {
