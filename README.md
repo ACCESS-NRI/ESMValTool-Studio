@@ -2,6 +2,12 @@
 
 A local GUI for browsing ESMValTool recipes, building preprocessor profiles, assigning them to variables, and submitting bounded PBS jobs to Gadi over your existing SSH connection.
 
+## GUI walkthrough
+
+Follow the captioned, chaptered tour of the main Studio workflows (4 minutes 51 seconds). Click the preview to watch or download the VP8 WebM video.
+
+[![ESMValTool Studio GUI walkthrough video](docs/media/esmvaltool-studio-walkthrough-poster.png)](docs/media/esmvaltool-studio-walkthrough.webm)
+
 ## Deploy locally
 
 The GUI runs on your workstation or a trusted login machine. Gadi only needs an existing ESMValTool installation; the GUI sends recipes and PBS scripts there over SSH. Use Python 3.11 or newer, `git`, and OpenSSH. An ESMValTool or ESMValCore checkout on the GUI machine is optional, but provides the recipe library, local documentation, and the current preprocessor catalogue.
