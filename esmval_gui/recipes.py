@@ -337,18 +337,19 @@ def list_recipes(root: Path, query: str = "") -> list[dict]:
     query = query.casefold().strip()
     items = []
     for path in sorted(root.rglob("recipe_*.yml")):
-        relative = str(path.relative_to(root))
+        relative = path.relative_to(root).as_posix()
         if query not in relative.casefold():
             continue
         stat = path.stat()
         facets = _library_facets(path, stat.st_mtime_ns, stat.st_size)
         items.append({"path": relative, "name": path.name,
-                      "group": str(path.parent.relative_to(root)),
+                      "group": path.parent.relative_to(root).as_posix(),
                       **{key: list(values) for key, values in facets.items()}})
     return items
 
 
 def read_library_recipe(root: Path, relative: str) -> str:
+    root = root.resolve()
     target = (root / relative).resolve()
     if not target.is_relative_to(root) or not target.is_file() or target.suffix not in (".yml", ".yaml"):
         raise FileNotFoundError("Recipe not found in library")
@@ -403,7 +404,7 @@ def _figure_from_page(docs_root: Path, page: Path, content: str, recipe_name: st
             started = True
             caption_lines.append(stripped)
         caption = " ".join(caption_lines)
-        figures.append({"path": str(target.relative_to(docs_root)), "caption": caption,
+        figures.append({"path": target.relative_to(docs_root).as_posix(), "caption": caption,
                         "match": recipe_name in (asset + " " + block).lower()})
     if not figures:
         return None
@@ -459,7 +460,7 @@ def library_recipe_info(root: Path, relative: str) -> dict:
     if page is None:
         return info
     path, content = page
-    info["docs_url"] = "https://docs.esmvaltool.org/en/latest/" + str(path.relative_to(docs_root).with_suffix(".html"))
+    info["docs_url"] = "https://docs.esmvaltool.org/en/latest/" + path.relative_to(docs_root).with_suffix(".html").as_posix()
     info["overview"] = _overview_from_page(content, name, exact is not None)
     info["figure"] = _figure_from_page(docs_root, path, content, name)
     return info

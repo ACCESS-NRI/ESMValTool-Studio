@@ -38,6 +38,7 @@ def read_source(root: Path | None, relative: str) -> dict:
         source = content.decode("utf-8")
     except UnicodeError as exc:
         raise ValueError("Script is not UTF-8 text.") from exc
+    source = source.replace("\r\n", "\n").replace("\r", "\n")
     return {"path": relative, "language": language, "source": source,
             "line_count": len(source.splitlines())}
 
@@ -46,7 +47,7 @@ def read_source(root: Path | None, relative: str) -> dict:
 def catalogue(root: Path | None) -> list[dict]:
     if root is None:
         return []
-    scripts_root = root.parent / "diag_scripts"
+    scripts_root = (root.parent / "diag_scripts").resolve()
     if not scripts_root.is_dir():
         return []
     usage: Counter[str] = Counter()

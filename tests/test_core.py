@@ -243,6 +243,7 @@ The recipe compares model temperature on a map.
             self.assertEqual(info["overview"], "The recipe compares model temperature on a map.")
             self.assertEqual(info["figure"]["caption"], "A temperature map from this recipe.")
             self.assertEqual(info["figure"]["scope"], "recipe")
+            self.assertEqual(info["figure"]["url"], "/api/docs-figure/recipes/figures/map.png")
 
     def test_library_collection_parses_without_losing_source(self):
         root = available_recipe_root()
