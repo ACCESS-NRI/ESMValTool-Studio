@@ -130,3 +130,9 @@ The GUI runs `esmvaltool run` inside a PBS job. It uploads a copy of the current
 - Queue limits can change. PBS is authoritative for queue and project limits; the form applies conservative local bounds and reports `qsub` errors.
 
 Run local checks with `.venv/bin/python -m unittest discover -s tests -v`.
+
+## Licence
+
+Except where otherwise noted, this repository is licensed under the [Apache License, Version 2.0](LICENSE).
+
+Third-party software, material, and datasets retain their original licences and attribution requirements.
