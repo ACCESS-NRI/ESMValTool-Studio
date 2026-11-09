@@ -1,4 +1,15 @@
 const $ = (id) => document.getElementById(id);
+const appBase = new URL('.', document.currentScript.src);
+const appUrl = (path) => new URL(path.replace(/^\//, ''), appBase);
+const storageKey = (key) => appBase.pathname === '/' ? key : `${key}:${appBase.pathname}`;
+const tokenKey = storageKey('esmval-gui-access-token');
+const settingsKey = storageKey('esmval-gui-settings');
+function requestHeaders() {
+  const headers = accessToken ? {'X-ESMVal-Token': accessToken} : {};
+  const xsrf = document.cookie.split('; ').find((item) => item.startsWith('_xsrf='));
+  if (xsrf) headers['X-XSRFToken'] = decodeURIComponent(xsrf.slice(6));
+  return headers;
+}
 const escapeHtml = (value) => String(value ?? '').replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const variableName = (item) => item.short_name || item.name;
 const variableGroup = (item) => item.name !== variableName(item) ? `Group ${item.name}` : '';
@@ -8,8 +19,8 @@ const realmLabel = (realm) => realmNames[realm] || realm;
 const observationProjects = new Set(['obs', 'obs6', 'obs4mips', 'ana4mips']);
 const libraryFilters = { projects: new Set(), datasets: new Set(), variables: new Set() };
 const state = { yaml: '', summary: null, name: '', libraryInfo: null, dirty: false, selected: null, jobs: [], selectedJob: null, parseTimer: null, draftTimer: null, figureUrl: null, figureSource: null, figureRequest: 0, catalogue: null, builderProfile: '', builderBrick: '', builderEditing: false, isNewRecipe: false, recipePreviewTimer: null, recipePreviewVersion: 0, configFiles: [], configSummary: null, configVersion: 0 };
-let accessToken = sessionStorage.getItem('esmval-gui-access-token') || '';
-const draftKey = 'esmval-gui-recipe-draft';
+let accessToken = sessionStorage.getItem(tokenKey) || '';
+const draftKey = storageKey('esmval-gui-recipe-draft');
 function setTheme(theme) {
   const dark = theme === 'dark';
   document.documentElement.dataset.theme = dark ? 'dark' : 'light';
@@ -37,7 +48,7 @@ window.addEventListener('beforeunload', (event) => {
 
 function showAuth(message = '') {
   accessToken = '';
-  sessionStorage.removeItem('esmval-gui-access-token');
+  sessionStorage.removeItem(tokenKey);
   document.querySelector('.shell').inert = true;
   $('authError').textContent = message;
   $('authGate').hidden = false;
@@ -46,7 +57,7 @@ function showAuth(message = '') {
 }
 
 async function api(path, options = {}) {
-  const response = await fetch('/api' + path, { ...options, headers: { 'Content-Type': 'application/json', ...(accessToken ? {'X-ESMVal-Token': accessToken} : {}), ...options.headers } });
+  const response = await fetch(appUrl('api' + path), { ...options, headers: { 'Content-Type': 'application/json', ...requestHeaders(), ...options.headers } });
   const body = await response.json();
   if (response.status === 401) showAuth('The token is missing or no longer valid. Enter the token from the server terminal.');
   if (!response.ok) throw new Error(typeof body.detail === 'string' ? body.detail : JSON.stringify(body.detail || body));
@@ -352,7 +363,7 @@ function renderRecipeStory() {
 async function loadRecipeFigure(path, image, request) {
   if (!path.startsWith('/api/docs-figure/')) return;
   try {
-    const response = await fetch(path, {headers: {'X-ESMVal-Token': accessToken}});
+    const response = await fetch(appUrl(path), {headers: requestHeaders()});
     if (response.status === 401) { showAuth('The token is no longer valid. Enter the token from the server terminal.'); return; }
     if (!response.ok) throw new Error('Figure unavailable');
     const url = URL.createObjectURL(await response.blob());
@@ -859,12 +870,12 @@ function settings() {
   const ids = ['host','username','project','queue','walltime','ncpus','memory_gb','jobfs_gb','storage','work_dir','esmvaltool_command','setup_command','config_dir','config_file'];
   const value = Object.fromEntries(ids.map((id) => [id, $(id).value.trim()]));
   ['ncpus','memory_gb','jobfs_gb'].forEach((id) => value[id] = Number(value[id]));
-  localStorage.setItem('esmval-gui-settings', JSON.stringify(value));
+  localStorage.setItem(settingsKey, JSON.stringify(value));
   return value;
 }
 function restoreSettings() {
   try {
-    const saved = JSON.parse(localStorage.getItem('esmval-gui-settings') || '{}');
+    const saved = JSON.parse(localStorage.getItem(settingsKey) || '{}');
     if (!saved.username && /^[A-Za-z0-9_.-]+@[A-Za-z0-9_.-]+$/.test(saved.host || '')) {
       [saved.username, saved.host] = saved.host.split('@');
     }
@@ -1153,7 +1164,7 @@ $('authForm').addEventListener('submit', async (event) => {
   $('authError').textContent = '';
   try {
     await api('/health');
-    sessionStorage.setItem('esmval-gui-access-token', accessToken);
+    sessionStorage.setItem(tokenKey, accessToken);
     $('authTokenInput').value = '';
     startStudio();
   } catch (error) {
@@ -1161,5 +1172,5 @@ $('authForm').addEventListener('submit', async (event) => {
   } finally { $('authSubmit').disabled = false; }
 });
 restoreSettings();
-if (accessToken) api('/health').then(startStudio).catch((error) => showAuth(error.message));
-else showAuth();
+// An authenticated ARE proxy supplies the API token on the server side.
+api('/health').then(startStudio).catch((error) => showAuth(error.message));

@@ -1,12 +1,46 @@
 # ESMValTool Studio
 
-A local GUI for browsing ESMValTool recipes, building preprocessor profiles, assigning them to variables, and submitting bounded PBS jobs to Gadi over your existing SSH connection.
+A GUI for browsing ESMValTool recipes, building preprocessor profiles, assigning them to variables, and submitting bounded PBS jobs to Gadi over your existing SSH connection. Run it locally, or use the shared editor pilot on NCI ARE.
 
 ## GUI walkthrough
 
 Follow the captioned, chaptered tour of the main Studio workflows (4 minutes 51 seconds). Click the preview to watch or download the VP8 WebM video.
 
 [![ESMValTool Studio GUI walkthrough video](docs/media/esmvaltool-studio-walkthrough-poster.png)](docs/media/esmvaltool-studio-walkthrough.webm)
+
+## Use Studio on NCI ARE
+
+The shared editor pilot is installed at `/g/data/xp65/public/apps/esmvaltool-studio`.
+You need an NCI account with access to the `xp65` filesystem. No personal
+installation or manual changes to `~/ondemand` are required.
+
+Open [ARE](https://are.nci.org.au/pun/sys/dashboard), choose **JupyterLab**, and
+select your charging project, resources and walltime. Set the following fields,
+expanding **Advanced options** for the module settings:
+
+| Field | Value |
+| --- | --- |
+| Module directories | `/apps/Modules/modulefiles /g/data/xp65/public/modules` |
+| Modules | `python3/3.11.7 esmvaltool-studio` |
+| Storage | Include `gdata/xp65`, plus any other data or configuration filesystems needed |
+| Python or Conda virtual environment base | Leave empty |
+| Conda environment | Leave empty |
+| Extra Jupyter arguments / Pre-script | Leave empty |
+
+Click **Launch**, then **Open JupyterLab** when the session is running. Studio
+opens directly using ARE's session login. Start a new session to use the shared
+installation if an existing session was launched with different module settings.
+
+The application and recipe library are shared; session credentials and job
+records remain in your own account. Download edited recipes before the session
+expires. Use **Delete** in ARE's Interactive Sessions to stop the job when done;
+closing the browser tab does not stop it.
+
+This pilot uses the existing JupyterLab tile without a VDI session. It does not
+add a separate Studio tile. Recipe editing has been tested, but job submission
+from ARE through the existing SSH backend remains unresolved. See the
+[ARE deployment guide](deploy/are/README.md#shared-xp65-installation) for installation
+details, troubleshooting and pilot limitations.
 
 ## Deploy locally
 
