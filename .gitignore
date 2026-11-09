@@ -1,4 +1,5 @@
 .venv/
+.are-venv/
 __pycache__/
 .pytest_cache/
 .esmval-gui/

@@ -1,0 +1,9 @@
+#%Module1.0
+module-whatis "ESMValTool Studio pilot using the ARE Jupyter launcher"
+prereq python3/3.11.7
+set studio_root [file normalize [file join [file dirname [info script]] ../../..]]
+prepend-path PATH [file join $studio_root deploy are bin]
+setenv ESMVAL_GUI_STATE_DIR [file join $env(HOME) .local state esmvaltool-studio-are]
+if {[file isdirectory [file join $studio_root library esmvaltool recipes]]} {
+    setenv ESMVAL_GUI_RECIPE_ROOT [file join $studio_root library esmvaltool recipes]
+}

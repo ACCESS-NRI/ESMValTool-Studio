@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import secrets
 import shutil
 from pathlib import Path
 
@@ -18,11 +19,27 @@ app = FastAPI(title="ESMValTool Studio", docs_url="/api/docs", openapi_url="/api
 
 @app.middleware("http")
 async def require_api_token(request: Request, call_next):
-    if request.url.path.startswith("/api/") and not auth.authorized(request.headers.get("X-ESMVal-Token")):
+    # Uvicorn includes root_path in scope.path when hosted under an ARE proxy.
+    path = request.scope["path"]
+    prefix = request.scope.get("root_path", "").rstrip("/")
+    if prefix and path.startswith(prefix + "/"):
+        path = path[len(prefix):]
+    is_api = path.startswith("/api/")
+    if is_api and not auth.authorized(request.headers.get("X-ESMVal-Token")):
         return JSONResponse({"detail": "GUI access token required"}, status_code=401,
                             headers={"Cache-Control": "no-store"})
+    # Jupyter Server Proxy delegates CSRF checks to the proxied application.
+    # Its server-side API token must not turn cookie-authenticated writes into
+    # requests that a third-party website can trigger.
+    if (is_api and os.environ.get("ESMVAL_GUI_REQUIRE_XSRF") == "1"
+            and request.method not in {"GET", "HEAD", "OPTIONS"}):
+        cookie = request.cookies.get("_xsrf", "")
+        header = request.headers.get("X-XSRFToken", "")
+        if not cookie or not header or not secrets.compare_digest(cookie.encode(), header.encode()):
+            return JSONResponse({"detail": "Reload Studio before making changes (XSRF token required)"},
+                                status_code=403, headers={"Cache-Control": "no-store"})
     response = await call_next(request)
-    if request.url.path.startswith("/api/"):
+    if is_api:
         response.headers["Cache-Control"] = "no-store"
     return response
 

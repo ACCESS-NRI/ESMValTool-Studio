@@ -1,0 +1,3 @@
+-r ../../requirements.txt
+jupyter-server>=2.14,<3
+jupyter-server-proxy>=4.4,<5
