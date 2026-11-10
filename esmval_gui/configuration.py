@@ -137,7 +137,7 @@ def load_remote_files(host: str, path: str = "") -> list[dict[str, str]]:
         raise ValueError("Enter an absolute configuration path on Gadi")
     command = f"python3 -c {shlex.quote(_REMOTE_SCRIPT)} {shlex.quote(path)}"
     try:
-        payload = json.loads(remote.ssh(host, command, timeout=45))
+        payload = json.loads(remote.execute(host, command, timeout=45))
     except (json.JSONDecodeError, RuntimeError, TimeoutError) as exc:
         raise ValueError(f"Could not read Gadi configuration: {exc}") from exc
     if not isinstance(payload, list):

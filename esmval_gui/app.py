@@ -6,10 +6,10 @@ import shutil
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException, Query, Request
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, JSONResponse, Response
 from pydantic import BaseModel, Field
 
-from . import auth, catalogue, configuration, esgf, recipes, remote, scripts_catalogue
+from . import auth, catalogue, configuration, esgf, outputs, pdf_preview, recipes, remote, scripts_catalogue
 
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -181,7 +181,7 @@ def remote_config(body: ConfigRemote):
         files = configuration.load_remote_files(remote.ssh_target(body.host, body.username), body.path)
         configuration.inspect_files(files)
         return {"files": files}
-    except ValueError as exc:
+    except (ValueError, RuntimeError) as exc:
         raise HTTPException(400, str(exc)) from exc
 
 
@@ -191,6 +191,9 @@ def health():
         "ok": True,
         "library_available": recipes.available_recipe_root() is not None,
         "local_esmvaltool": shutil.which("esmvaltool") is not None,
+        "execution_mode": remote.execution_mode(),
+        "runtime_setup": os.environ.get("ESMVAL_GUI_RUNTIME_SETUP", "") if remote.execution_mode() == "local" else "",
+        "runtime_command": os.environ.get("ESMVAL_GUI_RUNTIME_COMMAND", "esmvaltool") if remote.execution_mode() == "local" else "esmvaltool",
     }
 
 
@@ -414,6 +417,8 @@ def preflight(body: RunInput):
         remote.validate_resources(body.settings)
         checks = [{"level": "error", "label": "Recipe structure", "detail": message}
                   for message in summary["messages"]]
+        if remote.execution_mode() == "local":
+            checks.extend(remote.check_local_paths(body.settings))
         found = remote.probe(body.settings.ssh_target, body.settings.esmvaltool_command,
                              body.settings.setup_command)
         checks.append({"level": "ok" if found.get("pbs") == "yes" else "error", "label": "PBS",
@@ -421,7 +426,10 @@ def preflight(body: RunInput):
         executable = found.get("esmvaltool_path")
         checks.append({"level": "ok" if executable else "error", "label": "ESMValTool",
                        "detail": executable or "Executable not found"})
-        selected_config = body.settings.config_file or body.settings.config_dir or found.get("config_file", "")
+        if body.settings.config_file and found.get("config_mode") == "directory":
+            checks.append({"level": "error", "label": "Configuration format",
+                           "detail": "This runtime uses configuration directories. Clear Config file and set Config directory to the directory containing your YAML settings."})
+        selected_config = body.settings.config_file or body.settings.config_dir or found.get("config_dir") or found.get("config_file", "")
         config = None
         try:
             files = configuration.load_remote_files(body.settings.ssh_target, selected_config)
@@ -454,7 +462,8 @@ def preflight(body: RunInput):
                                for item in diagnostic["scripts"] if item["path"]})
         if executable:
             try:
-                inspected = remote.inspect_scripts(body.settings.ssh_target, executable, script_paths)
+                inspected = remote.inspect_scripts(body.settings.ssh_target, executable, script_paths,
+                                                   body.settings.setup_command)
                 versions = inspected.get("versions") or {}
                 checks.append({"level": "ok" if versions.get("ESMValCore") else "warning",
                                "label": "Gadi environment",
@@ -495,7 +504,14 @@ def submit(body: RunInput):
             raise ValueError("qsub is unavailable on this host")
         if not found.get("esmvaltool_path"):
             raise ValueError("ESMValTool executable was not found. Set its path or an environment setup command.")
-        return remote.submit(body.settings, body.yaml, STATE, summary["title"])
+        if body.settings.config_file and found.get("config_mode") == "directory":
+            raise ValueError("This ESMValCore runtime requires a config directory. Clear Config file and select Config directory instead.")
+        settings = body.settings.model_copy(update={"esmvaltool_command": found["esmvaltool_path"]})
+        if remote.execution_mode() == "local":
+            errors = [item["detail"] for item in remote.check_local_paths(settings) if item["level"] == "error"]
+            if errors:
+                raise ValueError("; ".join(errors))
+        return remote.submit(settings, body.yaml, STATE, summary["title"])
     except (ValueError, RuntimeError, TimeoutError) as exc:
         raise HTTPException(400, str(exc)) from exc
 
@@ -537,6 +553,47 @@ def cancel_job(run_id: str):
     except FileNotFoundError as exc:
         raise HTTPException(404, str(exc)) from exc
     except (ValueError, RuntimeError, TimeoutError) as exc:
+        raise HTTPException(400, str(exc)) from exc
+
+
+@app.get("/api/jobs/{run_id}/outputs")
+def job_outputs(run_id: str):
+    try:
+        return outputs.list_files(remote.read_job(STATE, run_id))
+    except (FileNotFoundError, ValueError) as exc:
+        raise HTTPException(404, str(exc)) from exc
+
+
+@app.get("/api/jobs/{run_id}/output")
+def job_output(run_id: str, path: str = Query(min_length=1, max_length=2048), download: bool = False,
+               page: int = 0):
+    try:
+        target = outputs.resolve_file(remote.read_job(STATE, run_id), path)
+        headers = {"Cache-Control": "no-store", "X-Content-Type-Options": "nosniff",
+                   "Content-Security-Policy": "sandbox; default-src 'none'"}
+        if download:
+            return FileResponse(target, media_type="application/octet-stream", filename=target.name, headers=headers)
+        kind = outputs.kind_for(target)
+        if kind == "text":
+            with target.open("rb") as handle:
+                data = handle.read(outputs.MAX_TEXT_BYTES + 1)
+            headers["X-Studio-Truncated"] = str(len(data) > outputs.MAX_TEXT_BYTES).lower()
+            return Response(data[:outputs.MAX_TEXT_BYTES].decode("utf-8", errors="replace"),
+                            media_type="text/plain", headers=headers)
+        if kind not in ("image", "pdf"):
+            raise ValueError("Download this file to inspect it with a compatible application")
+        if target.stat().st_size > outputs.MAX_PREVIEW_BYTES:
+            raise ValueError("This file exceeds the 25 MB preview limit. Use Download instead.")
+        if kind == "pdf":
+            if not 0 <= page <= 10000:
+                raise ValueError("Invalid PDF page")
+            data, pages = pdf_preview.render(target, page)
+            headers["X-Studio-Pages"] = str(pages)
+            return Response(data, media_type="image/png", headers=headers)
+        return FileResponse(target, media_type=outputs.IMAGE_TYPES[target.suffix.lower()], headers=headers)
+    except FileNotFoundError as exc:
+        raise HTTPException(404, "Output file or job not found") from exc
+    except (ValueError, OSError) as exc:
         raise HTTPException(400, str(exc)) from exc
 
 
