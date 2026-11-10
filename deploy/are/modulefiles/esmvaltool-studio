@@ -4,6 +4,10 @@ prereq python3/3.11.7
 set studio_root [file normalize [file join [file dirname [info script]] ../../..]]
 prepend-path PATH [file join $studio_root deploy are bin]
 setenv ESMVAL_GUI_STATE_DIR [file join $env(HOME) .local state esmvaltool-studio-are]
+if {[file executable /g/data/xp65/public/apps/med_conda_scripts/analysis3-26.10.d/bin/esmvaltool]} {
+    setenv ESMVAL_GUI_RUNTIME_SETUP "module use /opt/Modules/modulefiles /apps/Modules/modulefiles /apps/Modules/restricted-modulefiles /g/data/xp65/public/modules; module load conda/analysis3-26.10"
+    setenv ESMVAL_GUI_RUNTIME_COMMAND esmvaltool
+}
 if {[file isdirectory [file join $studio_root library esmvaltool recipes]]} {
     setenv ESMVAL_GUI_RECIPE_ROOT [file join $studio_root library esmvaltool recipes]
 }

@@ -16,7 +16,7 @@ from urllib.parse import urlencode, urljoin
 from urllib.request import HTTPCookieProcessor, Request, build_opener
 
 
-AVAILABLE = all(importlib.util.find_spec(name) for name in ("jupyter_server", "jupyter_server_proxy"))
+AVAILABLE = all(importlib.util.find_spec(name) for name in ("jupyter_server", "jupyter_server_proxy", "pypdfium2", "PIL"))
 ROOT = Path(__file__).resolve().parents[1]
 
 
@@ -46,6 +46,16 @@ class ARETests(unittest.TestCase):
             figures = directory / "docs/recipes/figures"
             figures.mkdir(parents=True)
             (figures / "test.png").write_bytes(b"pilot-test-image")
+            state = directory / "state"
+            state.mkdir()
+            output = directory / "run/output/recipe/plots"
+            output.mkdir(parents=True)
+            (output / "result.png").write_bytes(b"pilot-result-image")
+            pdf = (ROOT / "tests/fixtures/two-pages.pdf").read_bytes()
+            (output / "result.pdf").write_bytes(pdf)
+            (output / "provenance.yml").write_text("caption: A diagnostic result\n")
+            record = {"id": "aabbccddeeff", "remote_dir": str(directory / "run"), "transport": "local"}
+            (state / "aabbccddeeff.json").write_text(json.dumps(record))
             env = {**os.environ, "ESMVAL_GUI_STATE_DIR": str(directory / "state"),
                    "ESMVAL_GUI_RECIPE_ROOT": str(recipes), "ESMVAL_GUI_DOCS_ROOT": str(directory / "docs")}
             with (directory / "server.log").open("w+") as log:
@@ -94,7 +104,9 @@ class ARETests(unittest.TestCase):
                         with browser.open(base + "studio/" + resource) as response:
                             self.assertEqual(response.status, 200, resource)
                             if resource == "api/health":
-                                self.assertTrue(json.load(response)["library_available"])
+                                health = json.load(response)
+                                self.assertTrue(health["library_available"])
+                                self.assertEqual(health["execution_mode"], "local")
                             if resource == "api/docs":
                                 self.assertIn(f"/node/test/{port}/studio/api/openapi.json", response.read().decode())
 
@@ -111,6 +123,26 @@ class ARETests(unittest.TestCase):
                     with browser.open(Request(base + "studio/api/parse", data=payload, headers=headers)) as response:
                         self.assertEqual(response.status, 200)
                         self.assertEqual(response.headers["Cache-Control"], "no-store")
+                    with browser.open(base + "studio/api/jobs/aabbccddeeff/outputs") as response:
+                        listing = json.load(response)
+                        self.assertEqual(len(listing["files"]), 3)
+                    for name, expected in (("result.png", b"pilot-result-image"), ("result.pdf", pdf)):
+                        url = base + "studio/api/jobs/aabbccddeeff/output?" + urlencode({"path": "recipe/plots/" + name})
+                        with browser.open(url) as response:
+                            data = response.read()
+                            if name.endswith(".pdf"):
+                                self.assertTrue(data.startswith(b"\x89PNG\r\n\x1a\n"))
+                                self.assertEqual(response.headers["X-Studio-Pages"], "2")
+                            else:
+                                self.assertEqual(data, expected)
+                            self.assertEqual(response.headers["Cache-Control"], "no-store")
+                        with browser.open(url + "&download=true") as response:
+                            self.assertIn("attachment", response.headers["Content-Disposition"])
+                            self.assertEqual(response.read(), expected)
+                    with self.assertRaises(HTTPError) as error:
+                        browser.open(base + "studio/api/jobs/aabbccddeeff/output?" + urlencode({"path": "../../config.py"}))
+                    self.assertEqual(error.exception.code, 400)
+                    error.exception.close()
                     # Unrelated Jupyter APIs still enforce XSRF protection.
                     with self.assertRaises(HTTPError) as error:
                         browser.open(Request(base + "api/contents/test", data=b'{}', method="PUT",

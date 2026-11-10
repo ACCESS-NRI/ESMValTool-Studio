@@ -110,6 +110,7 @@ def server_config(path: Path) -> Config:
             "absolute_url": False,
             "timeout": 30,
             "environment": {"ESMVAL_GUI_ACCESS_TOKEN": token,
+                            "ESMVAL_GUI_EXECUTION": "local",
                             "ESMVAL_GUI_REQUIRE_XSRF": "1",
                             "ESMVAL_GUI_STATE_DIR": str(state_dir)},
             "request_headers_override": {"X-ESMVal-Token": token},

@@ -19,6 +19,7 @@ const realmLabel = (realm) => realmNames[realm] || realm;
 const observationProjects = new Set(['obs', 'obs6', 'obs4mips', 'ana4mips']);
 const libraryFilters = { projects: new Set(), datasets: new Set(), variables: new Set() };
 const state = { yaml: '', summary: null, name: '', libraryInfo: null, dirty: false, selected: null, jobs: [], selectedJob: null, parseTimer: null, draftTimer: null, figureUrl: null, figureSource: null, figureRequest: 0, catalogue: null, builderProfile: '', builderBrick: '', builderEditing: false, isNewRecipe: false, recipePreviewTimer: null, recipePreviewVersion: 0, configFiles: [], configSummary: null, configVersion: 0 };
+Object.assign(state, {executionMode: 'ssh', outputFiles: [], outputPath: null, outputUrl: null, outputRequest: 0, jobRequest: 0});
 let accessToken = sessionStorage.getItem(tokenKey) || '';
 const draftKey = storageKey('esmval-gui-recipe-draft');
 function setTheme(theme) {
@@ -891,6 +892,7 @@ async function probeRemote() {
     if (s.esmvaltool_command === 'esmvaltool' && result.esmvaltool_path) $('esmvaltool_command').value = result.esmvaltool_path;
     if (!s.project && result.project) $('project').value = result.project;
     if (!s.config_dir && !s.config_file && result.config_file) $('config_file').value = result.config_file;
+    if (!s.config_dir && !s.config_file && result.config_dir) $('config_dir').value = result.config_dir;
     if (!s.work_dir && result.project && result.user) $('work_dir').value = `/scratch/${result.project}/${result.user}/esmval-gui-jobs`;
     if (!s.storage && result.project) {
       const executableProject = (result.esmvaltool_path || s.esmvaltool_command).match(/^\/g\/data\/([A-Za-z0-9_-]+)\//)?.[1];
@@ -898,7 +900,7 @@ async function probeRemote() {
       $('storage').value = [...new Set(paths)].join('+');
     }
     $('probeResult').textContent = result.pbs === 'yes' ? (result.esmvaltool_path ? 'PBS and ESMValTool ready' : 'PBS ready · ESMValTool executable not found') : 'PBS unavailable';
-    $('connectionBadge').textContent = result.pbs === 'yes' ? 'Gadi connected' : 'SSH connected';
+    $('connectionBadge').textContent = result.execution_mode === 'local' ? 'ARE · direct PBS' : (result.pbs === 'yes' ? 'Gadi connected' : 'SSH connected');
     $('connectionBadge').classList.add('connected'); settings();
   } catch (err) {
     const reason = err.message.trim().split('\n').filter(Boolean).at(-1) || 'SSH connection failed.';
@@ -959,14 +961,120 @@ async function refreshJobs() {
   } catch (err) { toast(err.message, true); }
 }
 async function selectJob(id) {
+  const changed = state.selectedJob !== id;
+  const request = ++state.jobRequest;
+  if (changed) { clearOutputPreview(); state.outputFiles = []; renderOutputFiles(); }
   state.selectedJob = id; $('jobDetails').hidden = false;
   const record = state.jobs.find((job) => job.id === id); $('selectedJobTitle').textContent = 'Job ' + (record?.job_id || id);
   try {
-    const [status, logs] = await Promise.all([api('/jobs/' + id), api('/jobs/' + id + '/logs')]);
-    $('selectedJobState').textContent = `${status.state}${status.exit_status !== null && status.exit_status !== undefined ? ' · exit ' + status.exit_status : ''} · ${status.remote_dir}`;
+    const [status, logs, outputs] = await Promise.all([api('/jobs/' + id), api('/jobs/' + id + '/logs'), api('/jobs/' + id + '/outputs')]);
+    if (request !== state.jobRequest) return;
+    state.jobState = status.state;
+    $('selectedJobState').textContent = `${status.state}${status.exit_status !== null && status.exit_status !== undefined ? ' · exit ' + status.exit_status : ''} · ${status.remote_dir}${status.detail ? ' · ' + status.detail : ''}`;
     $('cancelJob').hidden = !['queued', 'running', 'held'].includes(status.state);
     $('stdoutLog').textContent = logs.stdout || 'No output yet.'; $('stderrLog').textContent = logs.stderr || 'No errors.';
-  } catch (err) { $('selectedJobState').textContent = err.message; }
+    state.outputFiles = outputs.files;
+    $('outputsSummary').textContent = outputs.available ? `${outputs.files.length} files · ${outputs.root}${outputs.truncated ? ' · listing limit reached; narrow the run output collection' : ''}` : outputs.detail;
+    $('outputStatus').textContent = outputs.detail || (outputs.files.length ? '' : 'No outputs yet. Refresh after the job starts writing results.');
+    renderOutputFiles();
+    if (!state.outputPath && outputs.files.length) {
+      const first = outputs.files.find((file) => ['image', 'pdf'].includes(file.kind)) || outputs.files[0];
+      previewOutput(first.path);
+    }
+  } catch (err) { if (request === state.jobRequest) $('selectedJobState').textContent = err.message; }
+}
+
+function fileSize(bytes) {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+function clearOutputPreview() {
+  state.outputRequest++;
+  if (state.outputUrl) URL.revokeObjectURL(state.outputUrl);
+  state.outputUrl = null; state.outputPath = null;
+  $('downloadOutput').disabled = true;
+  $('outputPreview').innerHTML = '<p class="empty">Select a file to preview it.</p>';
+}
+function renderOutputFiles() {
+  const query = $('outputSearch').value.trim().toLowerCase();
+  const kind = $('outputKind').value;
+  const files = state.outputFiles.filter((file) => file.path.toLowerCase().includes(query) &&
+    (kind === 'all' || (kind === 'plots' ? ['image', 'pdf'].includes(file.kind) : file.kind === kind)));
+  $('outputFiles').innerHTML = files.map((file) => `<button class="output-file ${file.path === state.outputPath ? 'selected' : ''}" data-path="${escapeHtml(file.path)}"><strong>${escapeHtml(file.name)}</strong><small>${escapeHtml(file.path)}</small><span>${escapeHtml(file.kind.toUpperCase())} · ${fileSize(file.size)}</span></button>`).join('') || '<p class="empty">No matching files.</p>';
+}
+function outputUrl(path, download = false) {
+  const url = appUrl(`api/jobs/${state.selectedJob}/output`);
+  url.searchParams.set('path', path);
+  if (download) url.searchParams.set('download', 'true');
+  return url;
+}
+async function outputResponse(url) {
+  const response = await fetch(url, {headers: requestHeaders()});
+  if (!response.ok) {
+    if (response.status === 401) showAuth('The session is no longer authenticated. Reload Studio from ARE.');
+    const error = await response.json().catch(() => ({}));
+    throw new Error(error.detail || 'Could not read this output file.');
+  }
+  return response;
+}
+async function previewOutput(path, page = 0) {
+  const file = state.outputFiles.find((item) => item.path === path);
+  if (!file) return;
+  clearOutputPreview(); state.outputPath = path; renderOutputFiles();
+  const request = state.outputRequest;
+  $('downloadOutput').disabled = false;
+  $('outputStatus').textContent = `${file.path} · ${fileSize(file.size)}`;
+  const container = $('outputPreview');
+  if (file.kind === 'data') {
+    container.innerHTML = '<p class="empty">Download this file for analysis. NetCDF and other data files are preserved in the run output directory.</p>';
+    return;
+  }
+  container.innerHTML = '<p class="empty">Loading preview…</p>';
+  try {
+    const url = outputUrl(path); url.searchParams.set('page', page);
+    const response = await outputResponse(url);
+    if (file.kind === 'text') {
+      const text = await response.text();
+      if (request !== state.outputRequest) return;
+      const preview = document.createElement('pre'); preview.textContent = text;
+      container.replaceChildren(preview);
+      if (response.headers.get('X-Studio-Truncated') === 'true') $('outputStatus').textContent += ' · preview truncated; download the full file';
+    } else {
+      const blob = await response.blob();
+      if (request !== state.outputRequest) return;
+      state.outputUrl = URL.createObjectURL(blob);
+      const preview = document.createElement('img'); preview.alt = file.name;
+      preview.src = state.outputUrl; container.replaceChildren(preview);
+      if (file.kind === 'pdf') {
+        const pages = Number(response.headers.get('X-Studio-Pages'));
+        const controls = document.createElement('div'); controls.className = 'pdf-pages';
+        const previous = document.createElement('button'); previous.className = 'button subtle small-button'; previous.textContent = 'Previous page'; previous.disabled = page === 0;
+        previous.addEventListener('click', () => previewOutput(path, page - 1));
+        const label = document.createElement('span'); label.textContent = `Page ${page + 1} of ${pages}`;
+        const next = document.createElement('button'); next.className = 'button subtle small-button'; next.textContent = 'Next page'; next.disabled = page + 1 >= pages;
+        next.addEventListener('click', () => previewOutput(path, page + 1));
+        controls.append(previous, label, next); container.prepend(controls);
+      }
+    }
+  } catch (err) { if (request === state.outputRequest) container.textContent = err.message; }
+}
+async function downloadOutput() {
+  const file = state.outputFiles.find((item) => item.path === state.outputPath);
+  if (!file) return;
+  const link = document.createElement('a'); link.download = file.name;
+  try {
+    if (accessToken) {
+      const response = await outputResponse(outputUrl(file.path, true));
+      link.href = URL.createObjectURL(await response.blob());
+      setTimeout(() => URL.revokeObjectURL(link.href), 60000);
+    } else {
+      // ARE authenticates the request and supplies the API token server-side.
+      // A regular download streams large files without buffering them in JS.
+      link.href = outputUrl(file.path, true);
+    }
+    document.body.append(link); link.click(); link.remove();
+  } catch (err) { $('outputStatus').textContent = err.message; }
 }
 document.querySelectorAll('.tab').forEach((button) => button.addEventListener('click', () => setTab(button.dataset.tab)));
 const newRecipeForm = $('newRecipeForm');
@@ -1134,6 +1242,13 @@ $('runModal').addEventListener('input', (event) => { if (event.target.matches('i
 $('runModal').addEventListener('change', (event) => { if (event.target.matches('input,select,textarea')) clearRunReview(); });
 $('probeButton').addEventListener('click', probeRemote); $('previewButton').addEventListener('click', previewScript); $('submitButton').addEventListener('click', submitJob);
 $('refreshJobs').addEventListener('click', refreshJobs); $('refreshLog').addEventListener('click', () => { if (state.selectedJob) selectJob(state.selectedJob); });
+$('outputSearch').addEventListener('input', renderOutputFiles);
+$('outputKind').addEventListener('change', renderOutputFiles);
+$('outputFiles').addEventListener('click', (event) => { const button = event.target.closest('[data-path]'); if (button) previewOutput(button.dataset.path); });
+$('downloadOutput').addEventListener('click', downloadOutput);
+setInterval(() => {
+  if (!document.hidden && $('runsTab').classList.contains('active') && state.selectedJob && ['queued', 'running', 'held', 'exiting'].includes(state.jobState)) selectJob(state.selectedJob);
+}, 30000);
 $('cancelJob').addEventListener('click', async () => {
   if (!state.selectedJob || !window.confirm('Cancel this PBS job on Gadi?')) return;
   try { await post('/jobs/' + state.selectedJob + '/cancel', {}); toast('Job cancelled.'); await refreshJobs(); }
@@ -1147,7 +1262,18 @@ function scheduleConnections() {
 $('pipeline').addEventListener('scroll', scheduleConnections);
 window.addEventListener('resize', scheduleConnections);
 new ResizeObserver(scheduleConnections).observe($('pipeline'));
-function startStudio() {
+function startStudio(health) {
+  state.executionMode = health?.execution_mode || 'ssh';
+  if (state.executionMode === 'local') {
+    for (const id of ['host', 'username', 'configHost', 'configUsername']) $(id).closest('label').hidden = true;
+    $('host').value = $('configHost').value = 'gadi.nci.org.au';
+    $('username').value = $('configUsername').value = '';
+    if (!$('setup_command').value && health.runtime_setup) $('setup_command').value = health.runtime_setup;
+    if ($('esmvaltool_command').value === 'esmvaltool' && health.runtime_command) $('esmvaltool_command').value = health.runtime_command;
+    $('executionHint').textContent = 'Jobs are submitted directly to PBS as your ARE account. Include the working directory, runtime and data filesystems in ARE Storage. Outputs remain available in Runs.';
+    $('probeButton').textContent = 'Check Gadi environment';
+    $('connectionBadge').textContent = 'ARE · direct PBS';
+  }
   $('authGate').hidden = true;
   document.querySelector('.shell').inert = false;
   try {
@@ -1163,10 +1289,10 @@ $('authForm').addEventListener('submit', async (event) => {
   $('authSubmit').disabled = true;
   $('authError').textContent = '';
   try {
-    await api('/health');
+    const health = await api('/health');
     sessionStorage.setItem(tokenKey, accessToken);
     $('authTokenInput').value = '';
-    startStudio();
+    startStudio(health);
   } catch (error) {
     $('authError').textContent = error.message === 'GUI access token required' ? 'That token was not accepted.' : error.message;
   } finally { $('authSubmit').disabled = false; }

@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>ESMValTool Studio</title>
   <script>try { if (localStorage.getItem('esmval-studio-theme') === 'dark') document.documentElement.dataset.theme = 'dark'; } catch (_) {}</script>
-  <link rel="stylesheet" href="style.css?v=are-1">
+  <link rel="stylesheet" href="style.css?v=are-runs-2">
 </head>
 <body>
   <div class="shell">
@@ -59,7 +59,13 @@
           <div class="builder-layout"><div class="builder-left"><div class="builder-subhead">PROFILE STEPS <span id="builderStepCount"></span></div><div id="builderSteps" class="builder-steps"></div><div class="builder-subhead catalogue-head">ADD A BRICK</div><input id="brickSearch" class="brick-search" placeholder="Search steps, categories, descriptions"><div id="brickList" class="brick-list"></div></div><div id="brickDetails" class="brick-details"><div class="empty-state">Select a brick to see its documentation and parameters.</div></div></div>
         </section>
         <section id="yamlTab" class="tab-content yaml-tab"><div class="editor-header"><strong id="yamlFileName">recipe.yml</strong><span>Changes update the pipeline as you type</span><button id="viewPipeline" class="button subtle small-button" type="button">View pipeline →</button></div><div id="yamlFeedback" class="yaml-feedback" role="status" hidden></div><textarea id="yamlEditor" spellcheck="false" aria-label="Recipe YAML"></textarea></section>
-        <section id="runsTab" class="tab-content"><div class="runs-header"><div><div class="eyebrow">EXECUTION</div><h2>Recent jobs</h2></div><button id="refreshJobs" class="button subtle">Refresh</button></div><div id="jobsList" class="jobs-list"><p class="empty">No jobs submitted yet.</p></div><div id="jobDetails" class="job-details" hidden><div class="job-details-head"><strong id="selectedJobTitle"></strong><div><button id="refreshLog" class="button subtle">Refresh log</button> <button id="cancelJob" class="button ghost" hidden>Cancel job</button></div></div><div id="selectedJobState" class="job-state"></div><div class="log-grid"><div><label>Output</label><pre id="stdoutLog"></pre></div><div><label>Errors</label><pre id="stderrLog"></pre></div></div></div></section>
+        <section id="runsTab" class="tab-content"><div class="runs-header"><div><div class="eyebrow">EXECUTION</div><h2>Recent jobs</h2></div><button id="refreshJobs" class="button subtle">Refresh</button></div><div id="jobsList" class="jobs-list"><p class="empty">No jobs submitted yet.</p></div><div id="jobDetails" class="job-details" hidden><div class="job-details-head"><strong id="selectedJobTitle"></strong><div><button id="refreshLog" class="button subtle">Refresh run</button> <button id="cancelJob" class="button ghost" hidden>Cancel job</button></div></div><div id="selectedJobState" class="job-state"></div><div class="log-grid"><div><label>Output</label><pre id="stdoutLog"></pre></div><div><label>Errors</label><pre id="stderrLog"></pre></div></div>
+          <section class="run-outputs" aria-labelledby="outputsTitle">
+            <div class="outputs-heading"><div><h3 id="outputsTitle">Outputs</h3><p id="outputsSummary">Select a run to view its results.</p></div><button id="downloadOutput" class="button subtle" disabled>Download file</button></div>
+            <div class="output-filters"><label>Find a file<input id="outputSearch" type="search" placeholder="Filter by file name or diagnostic"></label><label>File type<select id="outputKind"><option value="all">All files</option><option value="plots">Plots</option><option value="text">Text and provenance</option><option value="data">Data files</option></select></label></div>
+            <p id="outputStatus" class="output-status" role="status"></p>
+            <div class="outputs-layout"><div id="outputFiles" class="output-files" aria-label="Run output files"></div><div id="outputPreview" class="output-preview"><p class="empty">Plots and text previews appear here.</p></div></div>
+          </section></div></section>
         <section id="configTab" class="tab-content config-tab">
           <div class="config-heading"><div><div class="eyebrow">ESMVALTOOL SETTINGS</div><h2>Configuration</h2><p>Load layered YAML files to see their combined settings and where each value comes from.</p></div></div>
           <div class="config-import">
@@ -146,7 +152,7 @@
           <label class="wide">ESMValTool config directory <input id="config_dir" placeholder="Optional absolute path"></label>
           <label class="wide">ESMValTool config file <input id="config_file" placeholder="Optional legacy config-user.yml path"></label>
         </div>
-        <p class="ssh-hint">Use gadi.nci.org.au or an SSH alias. Leave the username blank to use your SSH config.</p>
+        <p id="executionHint" class="ssh-hint">Use gadi.nci.org.au or an SSH alias. Leave the username blank to use your SSH config.</p>
         <div class="remote-actions"><button id="probeButton" class="button subtle">Check Gadi connection</button><span id="probeResult"></span></div>
         <p id="probeError" class="remote-error" role="alert" hidden></p>
         <p id="submitError" class="remote-error" role="alert" hidden></p>
@@ -165,6 +171,6 @@
     </div>
   </div>
   <input id="fileInput" type="file" accept=".yml,.yaml,text/yaml" hidden>
-  <script src="app.js?v=are-1" defer></script>
+  <script src="app.js?v=are-runs-2" defer></script>
 </body>
 </html>
