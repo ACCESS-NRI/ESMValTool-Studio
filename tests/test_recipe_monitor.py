@@ -21,20 +21,21 @@ class RecipeMonitorTests(unittest.TestCase):
             self.assertEqual(recipe_monitor.allowed_users(), set())
 
     @patch.dict(os.environ, {"ESMVAL_GUI_EXECUTION": "ssh"})
-    def test_ssh_identity_uses_fixed_gadi_host_and_actual_account(self):
+    def test_local_installation_cannot_unlock_monitor_with_an_ssh_account(self):
         with patch.object(remote, "execute", return_value="ab1234\n") as execute:
-            self.assertEqual(recipe_monitor.identity("rb5533"), "ab1234")
-            execute.assert_called_once_with("rb5533@gadi.nci.org.au", "/usr/bin/id -un",
-                                            timeout=15, transport="ssh")
+            with self.assertRaisesRegex(RuntimeError, "only in an ARE"):
+                recipe_monitor.identity("rb5533")
+            execute.assert_not_called()
 
     @unittest.skipUnless(hasattr(os, "getuid"), "ARE uses POSIX identity")
-    @patch.dict(os.environ, {"ESMVAL_GUI_EXECUTION": "local", "USER": "rb5533"})
+    @patch.dict(os.environ, {"ESMVAL_GUI_EXECUTION": "local", "USER": "rb5533",
+                            "ESMVAL_GUI_DEPLOYMENT": "are", "ESMVAL_GUI_REQUIRE_XSRF": "1"})
     def test_are_identity_ignores_browser_and_environment_username(self):
         import pwd
         with patch.object(pwd, "getpwuid") as user, patch.object(remote, "execute") as execute:
             user.return_value.pw_name = "ab1234"
             self.assertEqual(recipe_monitor.identity("rb5533"), "ab1234")
-            user.assert_called_once_with(os.getuid())
+            user.assert_called_once_with(os.geteuid())
             execute.assert_not_called()
 
     def test_denied_identity_cannot_read_monitor(self):

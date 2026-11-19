@@ -1,4 +1,4 @@
-"""Account-gated recipe overview; identity never comes from a browser claim."""
+"""ARE-only run access; identity never comes from a browser or SSH claim."""
 
 from __future__ import annotations
 
@@ -8,14 +8,22 @@ from pathlib import Path
 from . import recipes, remote
 
 
+def is_are() -> bool:
+    # Set by the authenticated ARE launcher, separately from execution mode.
+    # Direct PBS execution or an SSH connection alone is not an ARE deployment.
+    return (os.name == "posix"
+            and os.environ.get("ESMVAL_GUI_DEPLOYMENT") == "are"
+            and os.environ.get("ESMVAL_GUI_REQUIRE_XSRF") == "1"
+            and remote.execution_mode() == "local")
+
+
 def identity(username: str = "") -> str:
-    if remote.execution_mode() == "local":
-        import pwd
-        return pwd.getpwuid(os.getuid()).pw_name
-    # Always contact the real Gadi endpoint, never a browser-supplied host or
-    # setup command that could print an allowlisted username on another host.
-    target = remote.ssh_target("gadi.nci.org.au", username)
-    return remote.execute(target, "/usr/bin/id -un", timeout=15, transport="ssh").strip()
+    if not is_are():
+        raise RuntimeError("Runs and Recipe monitor are available only in an ARE Studio session")
+    import pwd
+    # ARE launches one password-protected server under the session owner's UID.
+    # Ignore the compatibility username field and environment identity strings.
+    return pwd.getpwuid(os.geteuid()).pw_name
 
 
 def allowed_users() -> set[str]:

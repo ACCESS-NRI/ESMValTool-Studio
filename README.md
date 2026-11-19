@@ -162,14 +162,14 @@ This is a view of the **selected files**, not a claim about every effective runt
 1. Load or open a recipe. Review and edit it in the **Pipeline** and **YAML** tabs.
 2. Select **Submit to Gadi**, then **Check Gadi connection**. Local installations use your system SSH configuration; ARE uses PBS directly. The check detects the Gadi project, PBS and ESMValTool runtime when available.
 3. Set walltime, CPUs, memory, jobfs and storage. Include every `/g/data` and `/scratch` project used by the executable, recipe data and output in **Storage**. Modern ESMValCore uses **Config directory**; older installations may require **Config file**. The connection check detects the runtime's format.
-4. Select **Review & check**. The GUI previews the PBS script and checks PBS, the executable, selected configuration, project data roots, installed diagnostic scripts and named preprocessor steps without uploading a recipe or submitting a job. Any environment setup command you entered also runs during the check. Review warnings about anything that could not be checked, then select **Queue job**. Monitor status and output in **Runs**, where a queued or running job can also be cancelled.
+4. Select **Review & check**. The GUI previews the PBS script and checks PBS, the executable, selected configuration, project data roots, installed diagnostic scripts and named preprocessor steps without uploading a recipe or submitting a job. Any environment setup command you entered also runs during the check. Review warnings about anything that could not be checked, then select **Queue job**. Authorized ARE users can monitor status and output in **Runs**, where a queued or running job can also be cancelled. Other users can monitor their submitted jobs with Gadi’s PBS tools.
 
-The GUI runs `esmvaltool run` inside a PBS job. It writes a copy of the current YAML to a unique directory under your working directory and directs results into that run's `output/` directory. Live logs and an exit-code marker remain with the run. Job records live in `.esmval-gui/` for local installations or `~/.local/state/esmvaltool-studio-are` on ARE. Output previews are available for jobs submitted directly from ARE; older SSH jobs retain their original transport. Open **Results** from the main navigation or **View results** on a run to explore ESMValTool’s generated `index.html` report in a full-width workspace. Choose **Files** for individual plot previews, provenance and downloads. Reports retain their relative links and interactive controls, and can also open in a separate browser tab. Report links expire after one hour; **Refresh results** or **Report home** renews them. The report’s external styles and scripts require access to the CDNs used by ESMValCore.
+The GUI runs `esmvaltool run` inside a PBS job. It writes a copy of the current YAML to a unique directory under your working directory and directs results into that run's `output/` directory. Live logs and an exit-code marker remain with the run. Job records live in `.esmval-gui/` for local installations or `~/.local/state/esmvaltool-studio-are` on ARE. Run history and output previews are restricted to authorized ARE users; older SSH jobs retain their original transport. Open **Results** from the main navigation or **View results** on a run to explore ESMValTool’s generated `index.html` report in a full-width workspace. Choose **Files** for individual plot previews, provenance and downloads. Reports retain their relative links and interactive controls, and can also open in a separate browser tab. Report links expire after one hour; **Refresh results** or **Report home** renews them. The report’s external styles and scripts require access to the CDNs used by ESMValCore.
 
 ## Recipe monitor pilot
 
-The main Studio navigation provides **Recipes**, **Runs**, and (for allowed
-accounts) **Recipe monitor**. Runs and Recipe monitor are Studio-wide views that
+The main Studio navigation provides **Recipes** and, for authorized ARE
+accounts, **Runs**, **Results**, and **Recipe monitor**. Runs and Recipe monitor are Studio-wide views that
 can be opened without selecting a recipe. Returning to Recipes preserves the
 open recipe, its edits, and its selected editor tab.
 
@@ -189,23 +189,27 @@ that recipe. Filters apply to each recipe's latest run and combine with the
 recipe search. **Select all matching** selects the filtered recipes across pages
 for a batch review.
 
-The pane and its overview API are restricted to **`rb5533`** by default. On ARE,
-Studio checks the server process's operating-system account, not `$USER` or a
-browser field. Local installations verify the account with `id -un` over SSH to
-`gadi.nci.org.au`, using the NCI username in the submission dialog or the SSH
-configuration if blank. Access is checked at startup and after **Check Gadi
-connection**. If verification fails, a message below the main navigation explains
-why, with an NCI username field and **Check monitor access** to retry independently
-of the recipe runtime. The navigation item stays hidden until verification succeeds.
-If the running server predates the monitor API, the message asks you to restart
-Studio with the updated installation and reload the page. The pane always uses the
-canonical Gadi host for its Run action. Its SSH overview includes records for
-that host and account, not records submitted through other host aliases.
+**Runs**, **Results**, and **Recipe monitor**, including their run-history,
+log, cancellation, output and report APIs, are available only in an authenticated
+ARE Studio deployment to accounts on the allowlist. The default allowed account
+is **`rb5533`**. The ARE launcher marks the backend deployment and enables direct
+PBS execution and proxy XSRF protection. Direct execution mode alone does not
+enable these views. Standalone Studio clears any inherited ARE deployment marker;
+connecting it to Gadi over SSH cannot unlock them.
+
+Studio verifies the server process's effective operating-system account. Browser
+username fields, `$USER`, and `$LOGNAME` are not identity evidence. ARE launches
+an individual password-protected server as the session owner, so the check applies
+to that owner's account. The navigation stays hidden until the backend grants
+access. On ARE, a denied account sees an access message and can retry; local
+installations show no monitor access prompt and make no monitor SSH probes.
 
 Administrators can set `ESMVAL_GUI_RECIPE_MONITOR_USERS` to a comma-separated
-allowlist before starting Studio; an empty value disables the pane. Restart the
-server after changing it. This restriction applies to the monitor; the existing
-recipe editor, submission dialog and Runs tab remain available to other users.
+allowlist before starting Studio; an empty value disables access. Restart the
+server after changing it. The same allowlist applies to Runs, Results and Recipe
+monitor. Recipe editing and the existing single-recipe submission dialog remain
+available locally and to other users. Those users can track submitted jobs with
+Gadi's PBS tools; Studio does not expose their run-history views.
 
 Open **Settings** in the main Studio navigation to set the **Default Gadi compute
 project** for single recipes, selected batches and Run all. The chosen project

@@ -16,6 +16,8 @@ from esmval_gui import app, outputs
 @patch.dict(os.environ, {"ESMVAL_GUI_EXECUTION": "local"})
 class OutputTests(unittest.TestCase):
     def setUp(self):
+        self.enterContext(patch.object(app.recipe_monitor, "identity", return_value="rb5533"))
+        self.enterContext(patch.object(app.recipe_monitor, "allowed_users", return_value={"rb5533"}))
         self.temporary = tempfile.TemporaryDirectory()
         self.addCleanup(self.temporary.cleanup)
         self.root = Path(self.temporary.name)

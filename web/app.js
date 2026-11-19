@@ -61,6 +61,10 @@ async function api(path, options = {}) {
   const response = await fetch(appUrl('api' + path), { ...options, headers: { 'Content-Type': 'application/json', ...requestHeaders(), ...options.headers } });
   const body = await response.json();
   if (response.status === 401) showAuth('The token is missing or no longer valid. Enter the token from the server terminal.');
+  if (response.status === 403 && (path.startsWith('/jobs') || path.startsWith('/recipe-monitor'))) {
+    resetMonitorAccess();
+    showMonitorAccess(typeof body.detail === 'string' ? body.detail : 'ARE run access was denied.');
+  }
   if (!response.ok) throw Object.assign(new Error(typeof body.detail === 'string' ? body.detail : JSON.stringify(body.detail || body)), {status: response.status});
   return body;
 }
@@ -146,6 +150,7 @@ function toast(message, error = false) {
   clearTimeout(node.timer); node.timer = setTimeout(() => node.classList.remove('show'), 4200);
 }
 function setView(name) {
+  if (['runs', 'results', 'monitor'].includes(name) && !state.runAccess) return;
   if (name === 'monitor' && !state.monitorUser) return;
   state.view = name;
   const editing = name === 'editor';
@@ -1068,32 +1073,47 @@ let monitorVersion = 0;
 let monitorBusy = false;
 const monitorPageSize = 25;
 const monitorSelection = new Set();
-function monitorConnection() { return {username: $('username').value.trim()}; }
+function monitorConnection() { return {}; }
 function showMonitorAccess(message, checking = false) {
-  $('monitorAccessPanel').hidden = false;
+  $('monitorAccessPanel').hidden = !state.areSession;
   $('monitorAccessStatus').textContent = message;
-  $('monitorUsernameLabel').hidden = state.executionMode === 'local' || checking;
-  $('monitorUsername').value = $('username').value;
   $('retryMonitorAccess').disabled = checking;
+}
+function setRunAccess(allowed) {
+  state.runAccess = allowed;
+  for (const view of ['runs', 'results', 'monitor']) {
+    document.querySelector(`[data-view="${view}"]`).hidden = !allowed;
+  }
+  if (!allowed) {
+    if (['runs', 'results', 'monitor'].includes(state.view)) setView('editor');
+    state.jobRequest++; state.jobs = []; state.selectedJob = null; state.jobState = null;
+    state.outputFiles = []; clearOutputPreview(); clearReport();
+    $('jobDetails').hidden = true; $('jobsList').replaceChildren();
+    $('stdoutLog').textContent = ''; $('stderrLog').textContent = '';
+    $('resultsRun').innerHTML = '<option value="">Select a run</option>';
+    $('resultsLogs').disabled = true;
+    renderOutputFiles();
+  }
 }
 function resetMonitorAccess() {
   monitorVersion++;
   state.monitorUser = null; state.monitorRecipes = [];
   monitorSelection.clear(); state.analysis3Loaded = false;
-  $('monitorNavButton').hidden = true;
+  setRunAccess(false);
   $('monitorRows').replaceChildren();
-  showMonitorAccess('Recipe monitor requires a verified NCI account. Check access to show the pane.');
+  showMonitorAccess('Runs and Recipe monitor require an authorized ARE account.');
   if (state.view === 'monitor') setView('editor');
 }
 async function checkMonitorAccess() {
   resetMonitorAccess();
+  if (!state.areSession) return;
   const version = monitorVersion;
-  showMonitorAccess('Checking Gadi account for Recipe monitor…', true);
+  showMonitorAccess('Checking ARE account for Runs and Recipe monitor…', true);
   try {
     const access = await post('/recipe-monitor/access', monitorConnection());
     if (version !== monitorVersion) return;
     state.monitorUser = access.user;
-    $('monitorNavButton').hidden = false;
+    setRunAccess(true);
     $('monitorAccessPanel').hidden = true;
   } catch (error) {
     if (version !== monitorVersion) return;
@@ -1104,8 +1124,6 @@ async function checkMonitorAccess() {
 }
 $('monitorAccessPanel').addEventListener('submit', (event) => {
   event.preventDefault();
-  $('username').value = $('monitorUsername').value.trim();
-  settings();
   checkMonitorAccess();
 });
 function monitorStatus(recipe) {
@@ -1199,8 +1217,6 @@ async function loadMonitor() {
 $('refreshMonitor').addEventListener('click', loadMonitor);
 for (const id of ['monitorSearch', 'monitorStatusFilter']) $(id).addEventListener('input', () => { state.monitorPage = 0; renderMonitor(); });
 for (const [id, direction] of [['monitorPrevious', -1], ['monitorNext', 1]]) $(id).addEventListener('click', () => { state.monitorPage += direction; renderMonitor(); loadMonitor(); });
-$('username').addEventListener('input', resetMonitorAccess);
-$('username').addEventListener('change', checkMonitorAccess);
 $('monitorRows').addEventListener('click', async (event) => {
   const run = event.target.closest('[data-monitor-run]');
   if (run) openMonitorBatch([run.dataset.monitorRun]);
@@ -1417,7 +1433,7 @@ async function probeRemote() {
       $('storage').value = [...new Set(paths)].join('+');
     }
     $('probeResult').textContent = result.pbs === 'yes' ? (result.esmvaltool_path ? 'PBS and ESMValTool ready' : 'PBS ready · ESMValTool executable not found') : 'PBS unavailable';
-    $('connectionBadge').textContent = result.execution_mode === 'local' ? 'ARE · direct PBS' : (result.pbs === 'yes' ? 'Gadi connected' : 'SSH connected');
+    $('connectionBadge').textContent = result.execution_mode === 'local' ? (state.areSession ? 'ARE · direct PBS' : 'Direct PBS') : (result.pbs === 'yes' ? 'Gadi connected' : 'SSH connected');
     $('connectionBadge').classList.add('connected'); settings(); if (!state.runBatch) checkMonitorAccess();
   } catch (err) {
     const reason = err.message.trim().split('\n').filter(Boolean).at(-1) || 'SSH connection failed.';
@@ -1474,8 +1490,12 @@ async function submitJob() {
   finally { button.disabled = false; if (state.reviewSignature === signature) button.textContent = 'Queue job ↗'; }
 }
 async function refreshJobs() {
+  if (!state.runAccess) return;
+  const version = monitorVersion;
   try {
-    const result = await api('/jobs'); state.jobs = result.jobs;
+    const result = await api('/jobs');
+    if (!state.runAccess || version !== monitorVersion) return;
+    state.jobs = result.jobs;
     $('resultsRun').innerHTML = '<option value="">Select a run</option>' + result.jobs.map((job) => `<option value="${escapeHtml(job.id)}">${escapeHtml(job.title || job.job_id)} · ${escapeHtml(job.job_id)} · ${escapeHtml(new Date(job.submitted_at).toLocaleString())}</option>`).join('');
     $('resultsRun').value = state.selectedJob || '';
     $('jobsList').innerHTML = result.jobs.map((job) => `<button class="job-entry" data-id="${escapeHtml(job.id)}"><span class="job-icon">↗</span><span><strong>${escapeHtml(job.title || job.job_id)}</strong><small>${escapeHtml(job.job_id)} · ${new Date(job.submitted_at).toLocaleString()}${job.cancelled ? ' · Cancelled' : ''}</small></span><span class="job-queue">${escapeHtml(job.queue)}</span></button>`).join('') || '<p class="empty">No jobs submitted yet.</p>';
@@ -1485,6 +1505,7 @@ async function refreshJobs() {
   } catch (err) { toast(err.message, true); }
 }
 async function selectJob(id) {
+  if (!state.runAccess) return;
   const changed = state.selectedJob !== id;
   const request = ++state.jobRequest;
   if (changed) { clearOutputPreview(); clearReport(); state.outputFiles = []; renderOutputFiles(); setResultsMode('report'); }
@@ -1886,15 +1907,17 @@ window.addEventListener('resize', scheduleConnections);
 new ResizeObserver(scheduleConnections).observe($('pipeline'));
 function startStudio(health) {
   state.executionMode = health?.execution_mode || 'ssh';
+  state.areSession = health?.are_session === true;
+  setRunAccess(state.areSession && health?.run_access?.allowed === true);
   if (state.executionMode === 'local') {
     for (const id of ['host', 'username', 'configHost', 'configUsername']) $(id).closest('label').hidden = true;
     $('host').value = $('configHost').value = 'gadi.nci.org.au';
     $('username').value = $('configUsername').value = '';
     if (!$('setup_command').value && health.runtime_setup) $('setup_command').value = health.runtime_setup;
     if ($('esmvaltool_command').value === 'esmvaltool' && health.runtime_command) $('esmvaltool_command').value = health.runtime_command;
-    $('executionHint').textContent = 'Jobs are submitted directly to PBS as your ARE account. Include the working directory, runtime and data filesystems in ARE Storage. Outputs remain available in Runs.';
+    $('executionHint').textContent = 'Jobs are submitted directly to PBS as the server account. On ARE, include the working directory, runtime and data filesystems in Storage. Runs and Results require an authorized ARE account.';
     $('probeButton').textContent = 'Check Gadi environment';
-    $('connectionBadge').textContent = 'ARE · direct PBS';
+    $('connectionBadge').textContent = state.areSession ? 'ARE · direct PBS' : 'Direct PBS';
   }
   $('authGate').hidden = true;
   document.querySelector('.shell').inert = false;

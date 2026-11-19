@@ -23,6 +23,7 @@ ROOT = Path(__file__).resolve().parents[1]
 @unittest.skipUnless(AVAILABLE, "Install deploy/are/requirements.txt to test the ARE pilot")
 class ARETests(unittest.TestCase):
     def test_authenticated_direct_launch(self):
+        import pwd
         from jupyter_server.auth.security import passwd
         from esmval_gui.are import server_config
 
@@ -57,6 +58,7 @@ class ARETests(unittest.TestCase):
             record = {"id": "aabbccddeeff", "remote_dir": str(directory / "run"), "transport": "local"}
             (state / "aabbccddeeff.json").write_text(json.dumps(record))
             env = {**os.environ, "ESMVAL_GUI_STATE_DIR": str(directory / "state"),
+                   "ESMVAL_GUI_RECIPE_MONITOR_USERS": pwd.getpwuid(os.geteuid()).pw_name,
                    "ESMVAL_GUI_RECIPE_ROOT": str(recipes), "ESMVAL_GUI_DOCS_ROOT": str(directory / "docs")}
             with (directory / "server.log").open("w+") as log:
                 process = subprocess.Popen([sys.executable, "-m", "esmval_gui.are", "lab",
@@ -107,6 +109,9 @@ class ARETests(unittest.TestCase):
                                 health = json.load(response)
                                 self.assertTrue(health["library_available"])
                                 self.assertEqual(health["execution_mode"], "local")
+                                self.assertTrue(health["are_session"])
+                                self.assertTrue(health["run_access"]["allowed"])
+                                self.assertEqual(health["run_access"]["user"], pwd.getpwuid(os.geteuid()).pw_name)
                             if resource == "api/docs":
                                 self.assertIn(f"/node/test/{port}/studio/api/openapi.json", response.read().decode())
 
