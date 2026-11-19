@@ -212,3 +212,9 @@
 :root[data-theme=dark] :is(.output-preview,.output-filters input,.output-filters select){background:#192b3e;color:#d8ebf7}
 @media(max-width:850px){.outputs-layout{grid-template-columns:1fr}.output-files{max-height:210px}.output-filters{grid-template-columns:1fr}.outputs-heading{align-items:flex-start;flex-wrap:wrap}}
 .pdf-pages { display:flex; align-items:center; justify-content:center; gap:12px; flex-wrap:wrap; margin-bottom:12px; }
+
+/* Recipe element deletion controls remain visible for mouse, touch and keyboard users. */
+.pipeline-node{position:relative;margin-bottom:8px}.pipeline-node .pipeline-item{margin-bottom:0;padding-right:38px}.pipeline-node .item-arrow{display:none}
+.pipeline-delete{position:absolute;right:6px;top:50%;transform:translateY(-50%);display:grid;place-items:center;width:28px;height:30px;padding:0;border:1px solid transparent;border-radius:6px;background:transparent;color:#a44a4a}.pipeline-delete:hover{background:#fff0f0;border-color:#e9bcbc}.pipeline-delete:focus-visible,.button.danger:focus-visible{outline:2px solid #bd5151;outline-offset:2px}
+.button.danger{display:inline-flex;align-items:center;justify-content:center;gap:6px;background:#fff6f5;border-color:#e9c6c3;color:#a63e38}.button.danger:hover{background:#ffe9e6;border-color:#cd8f89}.node-delete-actions{display:flex;flex-wrap:wrap;gap:6px;margin:12px 0}.diagnostic-script .button.danger{margin-top:8px}
+:root[data-theme=dark] .pipeline-delete{color:#f3a6a0}:root[data-theme=dark] .pipeline-delete:hover,:root[data-theme=dark] .button.danger{background:#442b32;border-color:#81515a;color:#ffc0b9}:root[data-theme=dark] .button.danger:hover{background:#57343c;border-color:#b77879}
