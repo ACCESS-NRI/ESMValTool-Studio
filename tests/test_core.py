@@ -1,3 +1,4 @@
+import json
 import sys
 import tempfile
 import unittest
@@ -549,10 +550,12 @@ diagnostics: {maps: {variables: {tas: {}}, scripts: {plot: {script: examples/dia
     def test_cancel_marks_job_history(self, ssh, _status):
         with tempfile.TemporaryDirectory() as tmp:
             record = {"id": "abcdef123456", "job_id": "12345.gadi-pbs", "host": "gadi"}
+            (Path(tmp) / "abcdef123456.json").write_text(json.dumps(record))
             result = cancel(Path(tmp), record)
             self.assertEqual(result["state"], "cancelled")
             self.assertEqual(ssh.call_args.args[1], "qdel 12345.gadi-pbs")
-            self.assertTrue(record["cancelled"])
+            self.assertTrue(result["cancelled"])
+            self.assertTrue(json.loads((Path(tmp) / "abcdef123456.json").read_text())["cancelled"])
 
 
 if __name__ == "__main__":

@@ -7,11 +7,12 @@ import re
 import shlex
 import subprocess
 import sys
+import threading
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 
 HOST_RE = re.compile(r"^[A-Za-z0-9_.@-]+$")
@@ -20,6 +21,21 @@ CODE_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_-]{0,31}$")
 STORAGE_RE = re.compile(r"^(?:gdata|scratch)/[A-Za-z0-9_-]+(?:\+(?:gdata|scratch)/[A-Za-z0-9_-]+)*$")
 COMMAND_RE = re.compile(r"^[A-Za-z0-9_./-]+$")
 JOB_RE = re.compile(r"^[0-9]+(?:\.[A-Za-z0-9_.-]+)?$")
+_RECORD_LOCK = threading.RLock()
+ANALYSIS3_RE = re.compile(r"^conda/analysis3(?:-[A-Za-z0-9][A-Za-z0-9_.-]*)?$")
+MODULE_PATHS = "/opt/Modules/modulefiles /apps/Modules/modulefiles /apps/Modules/restricted-modulefiles /g/data/xp65/public/modules"
+
+
+def analysis3_setup(module: str) -> str:
+    if not ANALYSIS3_RE.fullmatch(module):
+        raise ValueError("Select a conda/analysis3 module")
+    return f"module purge; module use {MODULE_PATHS}; module load {module}"
+
+
+def analysis3_versions(username: str) -> list[str]:
+    raw = execute(ssh_target("gadi.nci.org.au", username),
+                  f"module use {MODULE_PATHS} && module -t avail conda/analysis3 2>&1", timeout=25)
+    return sorted(set(re.findall(r"(?<![\w/.-])(conda/analysis3(?:-[A-Za-z0-9][A-Za-z0-9_.-]*)?)(?=[\s()]|$)", raw)), reverse=True)
 
 
 def execution_mode() -> str:
@@ -63,8 +79,16 @@ class RemoteSettings(BaseModel):
     work_dir: str = ""
     esmvaltool_command: str = "esmvaltool"
     setup_command: str = ""
+    analysis3_module: str = ""
     config_dir: str = ""
     config_file: str = ""
+
+    @model_validator(mode="after")
+    def selected_runtime(self):
+        if self.analysis3_module:
+            self.setup_command = analysis3_setup(self.analysis3_module)
+            self.esmvaltool_command = "esmvaltool"
+        return self
 
     @field_validator("host")
     @classmethod
@@ -152,7 +176,8 @@ def check_local_paths(settings: RemoteSettings) -> list[dict]:
     """Check visible mounts and write permissions without creating anything."""
     checks = []
     work = Path(settings.work_dir)
-    for path in (settings.work_dir, settings.config_dir, settings.config_file, settings.esmvaltool_command):
+    for path in (settings.work_dir, settings.config_dir, settings.config_file, settings.esmvaltool_command,
+                 "/g/data/xp65" if settings.analysis3_module else ""):
         match = re.match(r"^/(g/data|scratch)/([A-Za-z0-9_-]+)(?:/|$)", path)
         if match and not Path(f"/{match[1]}/{match[2]}").is_dir():
             mount = f"{'gdata' if match[1] == 'g/data' else 'scratch'}/{match[2]}"
@@ -181,6 +206,8 @@ def script_for(settings: RemoteSettings, recipe_path: str, remote_dir: str) -> s
         f"#PBS -l walltime={settings.walltime}",
     ]
     storage = list(filter(None, settings.storage.split("+")))
+    if settings.analysis3_module and "gdata/xp65" not in storage:
+        storage.append("gdata/xp65")
     for path in (remote_dir, settings.esmvaltool_command, settings.config_file, settings.config_dir):
         match = re.match(r"^/(g/data|scratch)/([A-Za-z0-9_-]+)(?:/|$)", path)
         if match:
@@ -267,7 +294,7 @@ def ssh(host: str, command: str, data: str | None = None, timeout: int = 35) -> 
     return stdout
 
 
-def probe(host: str, command: str = "esmvaltool", setup: str = "") -> dict:
+def probe(host: str, command: str = "esmvaltool", setup: str = "", *, allow_fallback: bool = True) -> dict:
     if not HOST_RE.fullmatch(host) or host.startswith("-"):
         raise ValueError("Invalid SSH host")
     if not COMMAND_RE.fullmatch(command):
@@ -276,7 +303,7 @@ def probe(host: str, command: str = "esmvaltool", setup: str = "") -> dict:
         raise ValueError("Invalid setup command")
     preamble = f"set -e; {setup}; " if setup else ""
     executable_check = f"command -v {shlex.quote(command)} 2>/dev/null || true; "
-    if command == "esmvaltool":
+    if command == "esmvaltool" and allow_fallback:
         executable_check += (
             'if ! command -v esmvaltool >/dev/null 2>&1 && test -r "$HOME/.conda/environments.txt"; then '
             'while IFS= read -r env; do if test -x "$env/bin/esmvaltool"; then '
@@ -373,11 +400,13 @@ def inspect_scripts(host: str, executable: str, paths: list[str], setup: str = "
         raise ValueError(f"Could not inspect diagnostic scripts: {exc}") from exc
 
 
-def submit(settings: RemoteSettings, recipe: str, state_dir: Path, title: str = "recipe.yml") -> dict:
+def submit(settings: RemoteSettings, recipe: str, state_dir: Path, title: str = "recipe.yml",
+           *, recipe_path: str | None = None) -> dict:
     validate_resources(settings)
     state_dir.mkdir(mode=0o700, parents=True, exist_ok=True)
     run_id = uuid.uuid4().hex[:12]
     remote_dir = posixpath.join(settings.work_dir, run_id)
+    library_path = recipe_path
     recipe_path = posixpath.join(remote_dir, "recipe.yml")
     job_path = posixpath.join(remote_dir, "job.pbs")
     script = script_for(settings, recipe_path, remote_dir)
@@ -404,6 +433,10 @@ def submit(settings: RemoteSettings, recipe: str, state_dir: Path, title: str = 
         "transport": execution_mode(), "output_dir": posixpath.join(remote_dir, "output"),
         "submitted_at": datetime.now(timezone.utc).isoformat(),
         "project": settings.project, "queue": settings.queue,
+        "recipe_path": library_path,
+        "analysis3_module": settings.analysis3_module,
+        "requested_resources": {"ncpus": settings.ncpus, "mem": f"{settings.memory_gb}GB",
+                                "jobfs": f"{settings.jobfs_gb}GB", "walltime": settings.walltime},
     }
     (state_dir / f"{run_id}.json").write_text(json.dumps(record, indent=2), encoding="utf-8")
     return record
@@ -419,6 +452,9 @@ def read_job(state_dir: Path, run_id: str) -> dict:
 
 
 def status(record: dict) -> dict:
+    previous = record.get("last_status", {})
+    record = {**record, "resources_used": previous.get("resources_used", {}),
+              "usage_checked_at": previous.get("usage_checked_at")}
     if record.get("cancelled"):
         return {**record, "state": "cancelled", "exit_status": None}
     job_id = record["job_id"]
@@ -438,13 +474,42 @@ def status(record: dict) -> dict:
                 return {**record, "state": "finished" if int(code) == 0 else "failed", "exit_status": int(code)}
         except (KeyError, RuntimeError):
             pass
-        return {**record, "state": "unknown", "detail": str(exc)}
+        cached_state = previous.get("state")
+        return {**record, "state": cached_state if cached_state in {"finished", "failed"} else "unknown",
+                "exit_status": previous.get("exit_status"), "detail": str(exc), "stale": True}
     match = re.search(r"\bjob_state\s*=\s*([A-Z])", raw)
     exit_match = re.search(r"\bExit_status\s*=\s*(-?\d+)", raw)
-    state = {"Q": "queued", "R": "running", "H": "held", "F": "finished", "E": "exiting"}.get(match[1], "unknown") if match else "unknown"
+    state = {"Q": "queued", "R": "running", "H": "held", "F": "finished", "E": "exiting",
+             "B": "running", "S": "suspended", "U": "suspended", "W": "waiting", "T": "moving"}.get(match[1], "unknown") if match else "unknown"
     if state == "finished" and exit_match and int(exit_match[1]) != 0:
         state = "failed"
-    return {**record, "state": state, "exit_status": int(exit_match[1]) if exit_match else None}
+    used = dict(re.findall(r"^\s*resources_used\.([A-Za-z0-9_]+)\s*=\s*([^\r\n]+)", raw, re.MULTILINE))
+    requested = dict(re.findall(r"^\s*Resource_List\.(ncpus|mem|jobfs|walltime)\s*=\s*([^\r\n]+)", raw, re.MULTILINE))
+    return {**record, "state": state, "exit_status": int(exit_match[1]) if exit_match else None,
+            "resources_used": {**record["resources_used"], **{key: value.strip() for key, value in used.items()}},
+            "requested_resources": {**record.get("requested_resources", {}), **requested},
+            "usage_checked_at": datetime.now(timezone.utc).isoformat() if used else record["usage_checked_at"]}
+
+
+def update_record(state_dir: Path, run_id: str, changes: dict) -> dict:
+    """Merge and atomically replace records so polling cannot undo cancellation."""
+    with _RECORD_LOCK:
+        record = {**read_job(state_dir, run_id), **changes}
+        target = state_dir / f"{run_id}.json"
+        temporary = target.with_suffix(".tmp")
+        temporary.write_text(json.dumps(record, indent=2), encoding="utf-8")
+        temporary.replace(target)
+        return record
+
+
+def refresh_status(state_dir: Path, run_id: str) -> dict:
+    current = status(read_job(state_dir, run_id))
+    snapshot = {key: current[key] for key in
+                ("state", "exit_status", "resources_used", "usage_checked_at", "detail", "stale") if key in current}
+    snapshot["checked_at"] = datetime.now(timezone.utc).isoformat()
+    saved = update_record(state_dir, run_id, {"last_status": snapshot,
+                                            "requested_resources": current.get("requested_resources", {})})
+    return {**saved, **snapshot, **({"state": "cancelled"} if saved.get("cancelled") else {})}
 
 
 def cancel(state_dir: Path, record: dict) -> dict:
@@ -455,8 +520,7 @@ def cancel(state_dir: Path, record: dict) -> dict:
     if current["state"] in ("finished", "failed", "cancelled"):
         raise ValueError("Job is already finished or cancelled")
     execute(record["host"], f"qdel {shlex.quote(job_id)}", transport=record.get("transport", "ssh"))
-    record["cancelled"] = True
-    (state_dir / f"{record['id']}.json").write_text(json.dumps(record, indent=2), encoding="utf-8")
+    record = update_record(state_dir, record["id"], {"cancelled": True})
     return {**record, "state": "cancelled"}
 
 
