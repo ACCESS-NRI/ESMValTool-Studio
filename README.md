@@ -1,6 +1,6 @@
 # ESMValTool Studio
 
-A GUI for browsing ESMValTool recipes, building preprocessor profiles, assigning them to variables, and submitting bounded PBS jobs to Gadi over your existing SSH connection. Run it locally, or use the shared editor pilot on NCI ARE.
+A GUI for browsing ESMValTool recipes, building preprocessor profiles, and submitting bounded PBS jobs to Gadi. Run it locally over SSH, or use NCI ARE for direct PBS submission and viewing diagnostic outputs.
 
 ## GUI walkthrough
 
@@ -10,7 +10,7 @@ Follow the captioned, chaptered tour of the main Studio workflows (4 minutes 51 
 
 ## Use Studio on NCI ARE
 
-The shared editor pilot is installed at `/g/data/xp65/public/apps/esmvaltool-studio`.
+The shared pilot is installed at `/g/data/xp65/public/apps/esmvaltool-studio`.
 You need an NCI account with access to the `xp65` filesystem. No personal
 installation or manual changes to `~/ondemand` are required.
 
@@ -22,7 +22,7 @@ expanding **Advanced options** for the module settings:
 | --- | --- |
 | Module directories | `/apps/Modules/modulefiles /g/data/xp65/public/modules` |
 | Modules | `python3/3.11.7 esmvaltool-studio` |
-| Storage | Include `gdata/xp65`, plus any other data or configuration filesystems needed |
+| Storage | Include `gdata/xp65`, your working directory's `scratch/PROJECT`, and any data/configuration filesystems needed |
 | Python or Conda virtual environment base | Leave empty |
 | Conda environment | Leave empty |
 | Extra Jupyter arguments / Pre-script | Leave empty |
@@ -36,9 +36,18 @@ records remain in your own account. Download edited recipes before the session
 expires. Use **Delete** in ARE's Interactive Sessions to stop the job when done;
 closing the browser tab does not stop it.
 
+On ARE, **Submit to Gadi** uses `qsub` directly as your NCI account. The shared
+module supplies the `conda/analysis3-26.10` runtime setup. Use **Check Gadi
+environment**, select a working directory and configuration directory, then
+**Review & check** before queuing a job. Each diagnostic is a separate PBS job
+with its own requested resources and charging project.
+
+Open **Runs**, select a job, and use **Outputs** to view plots (including paged
+PDFs), inspect text/provenance, and download results. NetCDF files are available
+for download. Include the run's filesystem in ARE **Storage** to read results.
+
 This pilot uses the existing JupyterLab tile without a VDI session. It does not
-add a separate Studio tile. Recipe editing has been tested, but job submission
-from ARE through the existing SSH backend remains unresolved. See the
+add a separate Studio tile. See the
 [ARE deployment guide](deploy/are/README.md#shared-xp65-installation) for installation
 details, troubleshooting and pilot limitations.
 
@@ -150,11 +159,11 @@ The **Configuration** tab reads `.yml` and `.yaml` ESMValTool settings from seve
 This is a view of the **selected files**, not a claim about every effective runtime option. ESMValCore defaults, other configuration directories and command line arguments may add or override settings. To inspect the settings intended for a particular Gadi run, load the same directory or file that you enter in the submission dialog, then add any additional configuration files in their intended priority order.
 
 1. Load or open a recipe. Review and edit it in the **Pipeline** and **YAML** tabs.
-2. Select **Submit to Gadi**, then **Check Gadi connection**. The app uses your system `ssh` command and SSH config; it does not store keys or passwords. It detects the Gadi project, working directory, PBS and a registered ESMValTool conda environment when available.
-3. Set walltime, CPUs, memory, jobfs and storage. Include every `/g/data` and `/scratch` project used by the executable, recipe data and output in **Storage**. Older ESMValCore installations may require **Config file**; the Gadi probe detects an existing `config-user.yml`.
+2. Select **Submit to Gadi**, then **Check Gadi connection**. Local installations use your system SSH configuration; ARE uses PBS directly. The check detects the Gadi project, PBS and ESMValTool runtime when available.
+3. Set walltime, CPUs, memory, jobfs and storage. Include every `/g/data` and `/scratch` project used by the executable, recipe data and output in **Storage**. Modern ESMValCore uses **Config directory**; older installations may require **Config file**. The connection check detects the runtime's format.
 4. Select **Review & check**. The GUI previews the PBS script and checks PBS, the executable, selected configuration, project data roots, installed diagnostic scripts and named preprocessor steps without uploading a recipe or submitting a job. Any environment setup command you entered also runs during the check. Review warnings about anything that could not be checked, then select **Queue job**. Monitor status and output in **Runs**, where a queued or running job can also be cancelled.
 
-The GUI runs `esmvaltool run` inside a PBS job. It uploads a copy of the current YAML to a unique directory under your remote working directory; editing the source recipe never changes the library copy. The GUI records job IDs in `.esmval-gui/` locally. Job output remains on Gadi.
+The GUI runs `esmvaltool run` inside a PBS job. It writes a copy of the current YAML to a unique directory under your working directory and directs results into that run's `output/` directory. Live logs and an exit-code marker remain with the run. Job records live in `.esmval-gui/` for local installations or `~/.local/state/esmvaltool-studio-are` on ARE. Output previews are available for jobs submitted directly from ARE; older SSH jobs retain their original transport.
 
 ## Scope and limitations
 
