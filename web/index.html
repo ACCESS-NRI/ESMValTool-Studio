@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>ESMValTool Studio</title>
   <script>try { if (localStorage.getItem('esmval-studio-theme') === 'dark') document.documentElement.dataset.theme = 'dark'; } catch (_) {}</script>
-  <link rel="stylesheet" href="style.css?v=studio-node-delete-1">
+  <link rel="stylesheet" href="style.css?v=studio-recipe-save-1">
 </head>
 <body>
   <div class="shell">
@@ -16,11 +16,11 @@
         <button id="themeToggle" class="button ghost theme-toggle" type="button" aria-label="Switch to night mode" aria-pressed="false"><span aria-hidden="true">☾</span><span class="theme-label">Night</span></button>
         <button id="newRecipeButton" class="button subtle" type="button">+ New recipe</button>
         <button id="openFile" class="button ghost">Open YAML</button>
-        <button id="saveFile" class="button ghost">Download YAML</button>
+        <button id="saveFile" class="button primary" type="button" title="Save recipe (Ctrl/Cmd+S)">Save recipe</button>
         <button id="runButton" class="button primary">Submit to Gadi <span>↗</span></button>
       </div>
     </header>
-    <div class="workspace">
+    <div id="recipeWorkspace" class="workspace">
       <aside class="library panel">
         <div class="panel-heading"><div><div class="eyebrow">EXPLORE</div><h2>Recipe library</h2></div><span id="recipeCount" class="count">0</span></div>
         <label class="search"><span>⌕</span><input id="recipeSearch" placeholder="Search recipes" autocomplete="off"></label>
@@ -41,7 +41,7 @@
       <main class="main panel">
         <div class="document-bar">
           <div class="document-head"><div class="eyebrow">WORKSPACE / RECIPE</div><h1 id="recipeTitle">Select a recipe</h1><p id="recipeDescription">Load a recipe from the library or open a local YAML file.</p></div>
-          <div class="document-controls"><span id="documentName" class="filename">No file</span><span id="dirtyMark" class="dirty" hidden>Edited</span><button id="editYamlButton" class="button subtle small-button" type="button">Edit YAML</button></div>
+          <div class="document-controls"><span id="documentName" class="filename">No file</span><span id="dirtyMark" class="dirty" hidden>Unsaved</span><button id="saveRecipeAs" class="button ghost small-button" type="button" title="Save a copy (Ctrl/Cmd+Shift+S)">Save as…</button><button id="editYamlButton" class="button subtle small-button" type="button">Edit YAML</button></div>
         </div>
         <div class="tabs"><button class="tab active" data-tab="pipeline">Pipeline</button><button class="tab" data-tab="builder">Preprocessor builder</button><button class="tab" data-tab="yaml">YAML editor</button><button class="tab" data-tab="config">Configuration</button><button class="tab" data-tab="runs">Runs</button><span class="tab-spacer"></span><span id="validationStatus" class="validation-status">Ready</span></div>
         <section id="pipelineTab" class="tab-content active">
@@ -171,6 +171,6 @@
     </div>
   </div>
   <input id="fileInput" type="file" accept=".yml,.yaml,text/yaml" hidden>
-  <script src="app.js?v=studio-node-delete-1" defer></script>
+  <script src="app.js?v=studio-recipe-save-1" defer></script>
 </body>
 </html>
