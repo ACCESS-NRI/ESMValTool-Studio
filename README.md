@@ -165,6 +165,92 @@ This is a view of the **selected files**, not a claim about every effective runt
 
 The GUI runs `esmvaltool run` inside a PBS job. It writes a copy of the current YAML to a unique directory under your working directory and directs results into that run's `output/` directory. Live logs and an exit-code marker remain with the run. Job records live in `.esmval-gui/` for local installations or `~/.local/state/esmvaltool-studio-are` on ARE. Output previews are available for jobs submitted directly from ARE; older SSH jobs retain their original transport.
 
+## Recipe monitor pilot
+
+The main Studio navigation provides **Recipes**, **Runs**, and (for allowed
+accounts) **Recipe monitor**. Runs and Recipe monitor are Studio-wide views that
+can be opened without selecting a recipe. Returning to Recipes preserves the
+open recipe, its edits, and its selected editor tab.
+
+**Recipe monitor** shows every library recipe in a searchable, paginated
+table, with status filters, its latest linked Studio run, requested resources,
+and PBS-reported CPU time, memory, walltime and jobfs usage. **Run…** opens the
+existing resource selection and preflight review; **Details** opens the run's
+logs and outputs. Opening the pane, changing pages, or choosing **Refresh visible
+runs** checks the displayed runs. Filtering shows saved values; refresh to update
+the filtered rows. Check and usage timestamps distinguish saved samples from
+current information. Missing usage is shown as **—**, never as zero.
+
+Use **Last run status** to filter **Failed**, **Succeeded**, **Not run**,
+**Active**, **Cancelled**, or **Unknown / unchecked**. Succeeded requires a
+confirmed zero exit status; Not run means no linked Studio run is recorded for
+that recipe. Filters apply to each recipe's latest run and combine with the
+recipe search. **Select all matching** selects the filtered recipes across pages
+for a batch review.
+
+The pane and its overview API are restricted to **`rb5533`** by default. On ARE,
+Studio checks the server process's operating-system account, not `$USER` or a
+browser field. Local installations verify the account with `id -un` over SSH to
+`gadi.nci.org.au`, using the NCI username in the submission dialog or the SSH
+configuration if blank. Access is checked at startup and after **Check Gadi
+connection**. If verification fails, a message below the main navigation explains
+why, with an NCI username field and **Check monitor access** to retry independently
+of the recipe runtime. The navigation item stays hidden until verification succeeds.
+If the running server predates the monitor API, the message asks you to restart
+Studio with the updated installation and reload the page. The pane always uses the
+canonical Gadi host for its Run action. Its SSH overview includes records for
+that host and account, not records submitted through other host aliases.
+
+Administrators can set `ESMVAL_GUI_RECIPE_MONITOR_USERS` to a comma-separated
+allowlist before starting Studio; an empty value disables the pane. Restart the
+server after changing it. This restriction applies to the monitor; the existing
+recipe editor, submission dialog and Runs tab remain available to other users.
+
+Open **Settings** in the main Studio navigation to set the **Default Gadi compute
+project** for single recipes, selected batches and Run all. The chosen project
+is shown in the navigation and in each submission review. Changing the compute
+project in either Settings or the run dialog updates the shared default and
+requires a new preflight review. It is saved in this browser for this Studio URL;
+existing queued/running jobs retain their submitted project. Working directory
+and storage remain separate run settings.
+
+New library submissions record the recipe's relative library path, including
+when its YAML has been edited. The table uses the latest submission per path in
+this Studio account's full stored history. Earlier runs without that link and
+uploaded recipes remain in **Runs**; jobs submitted outside Studio are not
+imported. Resource samples are saved when Studio checks a run. Saved samples
+survive PBS history expiry, but final usage cannot be recovered if Studio never
+collected it before expiry. This pane reports PBS usage, not NCI billing or
+project-wide service-unit accounting.
+
+Choose **Gadi analysis3 version** to list and select an available module from
+Gadi. **Reload versions** refreshes the list. The selection applies to both
+preflight and submission, replaces a previously selected executable or setup
+command, and is recorded with the job. The PBS script loads the chosen module
+in a fresh module environment and includes `gdata/xp65` storage. On ARE, that
+filesystem must also be mounted in the interactive session. See the
+[ACCESS analysis3 environment guide](https://docs.access-hive.org.au/getting_started/environments/)
+for the module and storage requirements. **Current / custom environment** keeps
+the editable runtime settings in the submission dialog.
+
+Tick individual recipes, use the header checkbox for the current page, or
+choose **Select all matching** for all filtered results across pages. Selection
+survives filtering and page changes, with a count of selected recipes hidden by
+filters. **Run selected** reviews that selection; **Run all recipes** reviews
+the entire library regardless of filters. Each recipe becomes one PBS job with
+the same per-job resources, configuration and analysis3 version. Monitor runs
+use library YAML snapshots; unsaved editor changes are not included.
+
+The dialog lists the exact recipes and resource settings. **Review & check**
+checks every recipe without submitting any jobs. Fix or remove blocked recipes
+and check again; changing the runtime or resources also requires another review.
+Then **Queue N jobs** submits the reviewed recipes sequentially. Keep the tab
+open until it finishes. **Stop after current requests** stops further checks or
+submissions; it does not cancel jobs already queued. Any submission failure
+stops the remaining batch and shows partial results. Studio does not retry an
+uncertain submission automatically: check Runs and Gadi `qstat` before retrying.
+Successfully submitted recipes are removed from the selection.
+
 ## Scope and limitations
 
 - The pipeline view summarizes datasets, named preprocessor profiles, variables, diagnostics and scripts. ESMValCore chooses preprocessor order unless the recipe enables `custom_order`.

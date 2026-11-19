@@ -9,7 +9,7 @@ from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.responses import FileResponse, JSONResponse, Response
 from pydantic import BaseModel, Field
 
-from . import auth, catalogue, configuration, esgf, outputs, pdf_preview, recipes, remote, scripts_catalogue
+from . import auth, catalogue, configuration, esgf, outputs, pdf_preview, recipes, remote, scripts_catalogue, recipe_monitor
 
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -150,10 +150,45 @@ class ProbeInput(BaseModel):
     username: str = ""
     esmvaltool_command: str = "esmvaltool"
     setup_command: str = ""
+    analysis3_module: str = ""
 
 
 class RunInput(RecipeInput):
     settings: remote.RemoteSettings
+    recipe_path: str | None = None
+
+
+class MonitorInput(BaseModel):
+    username: str = ""
+
+
+def monitor_user(body: MonitorInput) -> str:
+    try:
+        user = recipe_monitor.identity(body.username)
+    except (ValueError, RuntimeError, TimeoutError) as exc:
+        raise HTTPException(403, f"Could not verify the Gadi account for Recipe monitor: {exc}") from exc
+    if user not in recipe_monitor.allowed_users():
+        raise HTTPException(403, f"Recipe monitor is not enabled for NCI account {user}")
+    return user
+
+
+@app.post("/api/recipe-monitor/access")
+def monitor_access(body: MonitorInput):
+    return {"user": monitor_user(body), "allowed": True}
+
+
+@app.post("/api/recipe-monitor")
+def monitor_overview(body: MonitorInput):
+    return recipe_monitor.overview(STATE, monitor_user(body))
+
+
+@app.post("/api/recipe-monitor/analysis3")
+def monitor_analysis3(body: MonitorInput):
+    user = monitor_user(body)
+    try:
+        return {"modules": remote.analysis3_versions(user)}
+    except (ValueError, RuntimeError, TimeoutError) as exc:
+        raise HTTPException(400, str(exc)) from exc
 
 
 class ConfigFile(BaseModel):
@@ -404,7 +439,10 @@ def edit_profile_fields(body: ProfileFields):
 @app.post("/api/remote/probe")
 def probe(body: ProbeInput):
     try:
-        return remote.probe(remote.ssh_target(body.host, body.username), body.esmvaltool_command, body.setup_command)
+        setup = remote.analysis3_setup(body.analysis3_module) if body.analysis3_module else body.setup_command
+        command = "esmvaltool" if body.analysis3_module else body.esmvaltool_command
+        return remote.probe(remote.ssh_target(body.host, body.username), command, setup,
+                            allow_fallback=not bool(body.analysis3_module))
     except (ValueError, RuntimeError, TimeoutError) as exc:
         raise HTTPException(400, str(exc)) from exc
 
@@ -433,7 +471,7 @@ def preflight(body: RunInput):
         if remote.execution_mode() == "local":
             checks.extend(remote.check_local_paths(body.settings))
         found = remote.probe(body.settings.ssh_target, body.settings.esmvaltool_command,
-                             body.settings.setup_command)
+                             body.settings.setup_command, allow_fallback=not bool(body.settings.analysis3_module))
         checks.append({"level": "ok" if found.get("pbs") == "yes" else "error", "label": "PBS",
                        "detail": "qsub found" if found.get("pbs") == "yes" else "qsub unavailable"})
         executable = found.get("esmvaltool_path")
@@ -509,10 +547,20 @@ def preflight(body: RunInput):
 @app.post("/api/remote/submit")
 def submit(body: RunInput):
     try:
+        if body.recipe_path is not None:
+            root = recipes.available_recipe_root()
+            if root is None:
+                raise ValueError("Recipe library is unavailable")
+            try:
+                recipes.read_library_recipe(root, body.recipe_path)
+            except FileNotFoundError as exc:
+                raise ValueError("Recipe not found in library") from exc
+            body.recipe_path = (root / body.recipe_path).resolve().relative_to(root.resolve()).as_posix()
         summary = recipes.summarize(body.yaml)
         if summary["messages"]:
             raise ValueError("Fix recipe structure before submission: " + "; ".join(summary["messages"]))
-        found = remote.probe(body.settings.ssh_target, body.settings.esmvaltool_command, body.settings.setup_command)
+        found = remote.probe(body.settings.ssh_target, body.settings.esmvaltool_command, body.settings.setup_command,
+                             allow_fallback=not bool(body.settings.analysis3_module))
         if found.get("pbs") != "yes":
             raise ValueError("qsub is unavailable on this host")
         if not found.get("esmvaltool_path"):
@@ -524,7 +572,7 @@ def submit(body: RunInput):
             errors = [item["detail"] for item in remote.check_local_paths(settings) if item["level"] == "error"]
             if errors:
                 raise ValueError("; ".join(errors))
-        return remote.submit(settings, body.yaml, STATE, summary["title"])
+        return remote.submit(settings, body.yaml, STATE, summary["title"], recipe_path=body.recipe_path)
     except (ValueError, RuntimeError, TimeoutError) as exc:
         raise HTTPException(400, str(exc)) from exc
 
@@ -546,7 +594,7 @@ def jobs():
 @app.get("/api/jobs/{run_id}")
 def job(run_id: str):
     try:
-        return remote.status(remote.read_job(STATE, run_id))
+        return remote.refresh_status(STATE, run_id)
     except (FileNotFoundError, ValueError) as exc:
         raise HTTPException(404, str(exc)) from exc
 

@@ -36,7 +36,7 @@ function persistDraft() {
   clearTimeout(state.draftTimer);
   if (!state.dirty || !state.yaml) { sessionStorage.removeItem(draftKey); return; }
   state.draftTimer = setTimeout(() => {
-    try { sessionStorage.setItem(draftKey, JSON.stringify({yaml: state.yaml, name: state.name, savedAt: Date.now()})); }
+    try { sessionStorage.setItem(draftKey, JSON.stringify({yaml: state.yaml, name: state.name, libraryPath: state.libraryPath, savedAt: Date.now()})); }
     catch (_) { toast('Draft recovery is unavailable in this browser session.', true); }
   }, 500);
 }
@@ -44,7 +44,7 @@ function canReplaceRecipe() {
   return !state.dirty || window.confirm('This recipe has unsaved edits. Replace it and discard those edits?');
 }
 window.addEventListener('beforeunload', (event) => {
-  if (state.dirty) { event.preventDefault(); event.returnValue = ''; }
+  if (state.dirty || state.batchBusy) { event.preventDefault(); event.returnValue = ''; }
 });
 
 function showAuth(message = '') {
@@ -61,7 +61,7 @@ async function api(path, options = {}) {
   const response = await fetch(appUrl('api' + path), { ...options, headers: { 'Content-Type': 'application/json', ...requestHeaders(), ...options.headers } });
   const body = await response.json();
   if (response.status === 401) showAuth('The token is missing or no longer valid. Enter the token from the server terminal.');
-  if (!response.ok) throw new Error(typeof body.detail === 'string' ? body.detail : JSON.stringify(body.detail || body));
+  if (!response.ok) throw Object.assign(new Error(typeof body.detail === 'string' ? body.detail : JSON.stringify(body.detail || body)), {status: response.status});
   return body;
 }
 function post(path, body) { return api(path, { method: 'POST', body: JSON.stringify(body) }); }
@@ -145,10 +145,28 @@ function toast(message, error = false) {
   const node = $('toast'); node.textContent = message; node.classList.toggle('error', error); node.classList.add('show');
   clearTimeout(node.timer); node.timer = setTimeout(() => node.classList.remove('show'), 4200);
 }
-function setTab(name) {
-  document.querySelectorAll('.tab').forEach((tab) => tab.classList.toggle('active', tab.dataset.tab === name));
-  ['pipeline', 'builder', 'yaml', 'config', 'runs'].forEach((tab) => $(tab + 'Tab').classList.toggle('active', tab === name));
+function setView(name) {
+  if (name === 'monitor' && !state.monitorUser) return;
+  state.view = name;
+  const editing = name === 'editor';
+  $('recipeWorkspace').hidden = !editing;
+  $('studioGlobalView').hidden = editing;
+  document.querySelector('.shell').classList.toggle('global-view-active', !editing);
+  document.querySelectorAll('[data-view]').forEach((button) => {
+    const active = button.dataset.view === name;
+    button.classList.toggle('active', active);
+    if (active) button.setAttribute('aria-current', 'page');
+    else button.removeAttribute('aria-current');
+  });
+  for (const view of ['runs', 'monitor']) $(view + 'Tab').classList.toggle('active', view === name);
   if (name === 'runs') refreshJobs();
+  if (name === 'monitor') loadMonitor();
+  if (editing) scheduleConnections();
+}
+function setTab(name) {
+  setView('editor');
+  document.querySelectorAll('[data-tab]').forEach((tab) => tab.classList.toggle('active', tab.dataset.tab === name));
+  ['pipeline', 'builder', 'yaml', 'config'].forEach((tab) => $(tab + 'Tab').classList.toggle('active', tab === name));
   if (name === 'builder') renderBuilder();
 }
 function configOrigin(summary, path) {
@@ -235,10 +253,11 @@ function updateYamlFeedback(summary) {
   const messages = summary?.messages || [];
   setYamlFeedback(messages.length ? messages.join('\n') : '', messages.length ? 'issue' : '');
 }
-function setRecipe(yaml, name, dirty = false, libraryInfo = null, isNewRecipe = false) {
+function setRecipe(yaml, name, dirty = false, libraryInfo = null, isNewRecipe = false, libraryPath = null) {
   state.libraryRequest = (state.libraryRequest || 0) + 1;
   state.recipeVersion = (state.recipeVersion || 0) + 1;
   state.fileHandle = null;
+  state.libraryPath = libraryPath;
   state.yaml = yaml; state.name = name; state.libraryInfo = libraryInfo; state.dirty = dirty; state.selected = null; state.builderProfile = ''; state.builderBrick = ''; state.isNewRecipe = isNewRecipe;
   $('yamlEditor').value = yaml; $('documentName').textContent = name; $('yamlFileName').textContent = name.split('/').pop() || 'recipe.yml'; $('dirtyMark').hidden = !dirty;
   persistDraft();
@@ -883,7 +902,7 @@ async function loadLibrary() {
     renderRealmFilter();
     renderLibrary();
     const initial = result.recipes.find((x) => x.path === 'examples/recipe_python.yml') || result.recipes[0];
-    if (initial && !state.yaml) await openLibraryRecipe(initial.path);
+    if (initial && !state.yaml && (!state.view || state.view === 'editor')) await openLibraryRecipe(initial.path, true);
   } catch (err) { $('recipeList').innerHTML = `<p class="empty">${escapeHtml(err.message)}</p>`; }
 }
 function renderRealmFilter() {
@@ -971,53 +990,434 @@ function renderLibrary() {
   for (const facet of Object.keys(libraryFilters)) renderLibraryFacetOptions(facet);
   renderActiveLibraryFilters();
 }
-async function openLibraryRecipe(path) {
-  if (state.name === path && state.yaml) return;
+async function openLibraryRecipe(path, background = false) {
+  if (state.libraryPath === path && state.yaml) return true;
   if (!canReplaceRecipe()) return;
   const current = state.yaml;
   const request = (state.libraryRequest = (state.libraryRequest || 0) + 1);
   try {
     const result = await api('/recipes/' + path.split('/').map(encodeURIComponent).join('/'));
+    if (background && state.view && state.view !== 'editor') return;
     if (request !== state.libraryRequest || (state.yaml !== current && !canReplaceRecipe())) return;
-    setRecipe(result.yaml, path, false, result.library_info); renderLibrary();
+    setRecipe(result.yaml, path, false, result.library_info, false, path); renderLibrary(); return true;
   }
   catch (err) { toast(err.message, true); }
 }
 function settings() {
-  const ids = ['host','username','project','queue','walltime','ncpus','memory_gb','jobfs_gb','storage','work_dir','esmvaltool_command','setup_command','config_dir','config_file'];
+  const ids = ['host','username','project','queue','walltime','ncpus','memory_gb','jobfs_gb','storage','work_dir','esmvaltool_command','setup_command','analysis3_module','config_dir','config_file'];
   const value = Object.fromEntries(ids.map((id) => [id, $(id).value.trim()]));
   ['ncpus','memory_gb','jobfs_gb'].forEach((id) => value[id] = Number(value[id]));
   localStorage.setItem(settingsKey, JSON.stringify(value));
+  renderStudioSettings();
   return value;
 }
+function renderStudioSettings() {
+  const project = $('project').value.trim();
+  $('studioProjectLabel').textContent = project ? `Project: ${project}` : '';
+}
+function openStudioSettings() {
+  if (state.batchBusy) return;
+  state.settingsReturnFocus = document.activeElement;
+  $('defaultComputeProject').value = $('project').value.trim();
+  $('settingsError').hidden = true;
+  document.querySelector('.shell').inert = true;
+  $('runModal').inert = true;
+  $('settingsModal').hidden = false;
+  $('defaultComputeProject').focus();
+}
+function closeStudioSettings() {
+  $('settingsModal').hidden = true;
+  document.querySelector('.shell').inert = !$('authGate').hidden;
+  $('runModal').inert = false;
+  state.settingsReturnFocus?.focus();
+}
+$('studioSettingsButton').addEventListener('click', openStudioSettings);
+$('runSettingsButton').addEventListener('click', openStudioSettings);
+for (const id of ['closeSettings', 'cancelSettings']) $(id).addEventListener('click', closeStudioSettings);
+$('settingsModal').addEventListener('click', (event) => { if (event.target === $('settingsModal')) closeStudioSettings(); });
+$('settingsModal').addEventListener('keydown', (event) => {
+  if (event.key === 'Escape') { event.stopPropagation(); closeStudioSettings(); }
+  if (event.key === 'Tab') {
+    const fields = [...$('settingsModal').querySelectorAll('button,input')];
+    const first = fields[0], last = fields.at(-1);
+    if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+    else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
+  }
+});
+$('studioSettingsForm').addEventListener('submit', (event) => {
+  event.preventDefault();
+  if (state.batchBusy) return;
+  const previous = $('project').value;
+  $('project').value = $('defaultComputeProject').value.trim();
+  try { settings(); }
+  catch (error) {
+    $('project').value = previous;
+    $('settingsError').textContent = `Could not save settings: ${error.message}`;
+    $('settingsError').hidden = false;
+    return;
+  }
+  clearRunReview();
+  if (state.runBatch) renderBatch();
+  closeStudioSettings();
+  toast('Studio settings saved.');
+});
+$('project').addEventListener('change', () => { settings(); });
+
+let monitorVersion = 0;
+let monitorBusy = false;
+const monitorPageSize = 25;
+const monitorSelection = new Set();
+function monitorConnection() { return {username: $('username').value.trim()}; }
+function showMonitorAccess(message, checking = false) {
+  $('monitorAccessPanel').hidden = false;
+  $('monitorAccessStatus').textContent = message;
+  $('monitorUsernameLabel').hidden = state.executionMode === 'local' || checking;
+  $('monitorUsername').value = $('username').value;
+  $('retryMonitorAccess').disabled = checking;
+}
+function resetMonitorAccess() {
+  monitorVersion++;
+  state.monitorUser = null; state.monitorRecipes = [];
+  monitorSelection.clear(); state.analysis3Loaded = false;
+  $('monitorNavButton').hidden = true;
+  $('monitorRows').replaceChildren();
+  showMonitorAccess('Recipe monitor requires a verified NCI account. Check access to show the pane.');
+  if (state.view === 'monitor') setView('editor');
+}
+async function checkMonitorAccess() {
+  resetMonitorAccess();
+  const version = monitorVersion;
+  showMonitorAccess('Checking Gadi account for Recipe monitor…', true);
+  try {
+    const access = await post('/recipe-monitor/access', monitorConnection());
+    if (version !== monitorVersion) return;
+    state.monitorUser = access.user;
+    $('monitorNavButton').hidden = false;
+    $('monitorAccessPanel').hidden = true;
+  } catch (error) {
+    if (version !== monitorVersion) return;
+    showMonitorAccess(error.status === 404
+      ? 'Recipe monitor is unavailable in the running server. Restart Studio with the updated installation, then reload this page.'
+      : `Recipe monitor is unavailable: ${error.message}`);
+  }
+}
+$('monitorAccessPanel').addEventListener('submit', (event) => {
+  event.preventDefault();
+  $('username').value = $('monitorUsername').value.trim();
+  settings();
+  checkMonitorAccess();
+});
+function monitorStatus(recipe) {
+  const job = recipe.last_run;
+  if (!job) return 'never';
+  if (job.state === 'finished') return job.exit_status === 0 ? 'succeeded' : job.exit_status == null ? 'unknown' : 'failed';
+  return job.state || 'unknown';
+}
+function monitorMatches() {
+  const query = $('monitorSearch').value.toLowerCase().trim();
+  const filter = $('monitorStatusFilter').value;
+  return (state.monitorRecipes || []).filter((recipe) => {
+    const status = monitorStatus(recipe);
+    return `${recipe.path} ${(recipe.realms || []).map(realmLabel).join(' ')}`.toLowerCase().includes(query)
+      && (!filter || status === filter || (filter === 'active' && ['queued','running','held','waiting','exiting','suspended','moving'].includes(status)));
+  });
+}
+function monitorVisible() {
+  const matches = monitorMatches();
+  const pages = Math.max(1, Math.ceil(matches.length / monitorPageSize));
+  state.monitorPage = Math.min(state.monitorPage || 0, pages - 1);
+  return {matches, pages, rows: matches.slice(state.monitorPage * monitorPageSize, (state.monitorPage + 1) * monitorPageSize)};
+}
+function monitorDate(value) { return value ? new Date(value).toLocaleString() : '—'; }
+function renderMonitor() {
+  const {matches, pages, rows} = monitorVisible();
+  $('monitorPage').textContent = `${matches.length} recipes · Page ${(state.monitorPage || 0) + 1} of ${pages}`;
+  $('monitorPrevious').disabled = monitorBusy || !state.monitorPage;
+  $('monitorNext').disabled = monitorBusy || state.monitorPage + 1 >= pages;
+  renderMonitorSelection(rows);
+  $('monitorRows').innerHTML = rows.map((recipe) => {
+    const job = recipe.last_run;
+    const status = monitorStatus(recipe);
+    const used = job?.resources_used || {};
+    const requested = job?.requested_resources || {};
+    const resource = (value, request) => `${escapeHtml(value ?? '—')}<small>${escapeHtml(request)}</small>`;
+    return `<tr><td><input type="checkbox" data-monitor-select="${escapeHtml(recipe.path)}" aria-label="Select ${escapeHtml(recipe.path)}" ${monitorSelection.has(recipe.path) ? 'checked' : ''}></td><td><strong>${escapeHtml(recipe.name.replace(/^recipe_/, '').replace(/\.ya?ml$/, '').replaceAll('_', ' '))}</strong><small>${escapeHtml(recipe.path)}</small><small>${escapeHtml((recipe.realms || []).map(realmLabel).join(' · '))}</small></td>
+      <td>${escapeHtml(monitorDate(job?.submitted_at))}<small>${escapeHtml(job ? `${job.job_id} · ${job.project} / ${job.queue}${job.analysis3_module ? ` · ${job.analysis3_module}` : ''}` : '')}</small></td>
+      <td><span class="monitor-state ${escapeHtml(status)}">${escapeHtml(status === 'never' ? 'Not run' : status[0].toUpperCase() + status.slice(1))}</span><small>${escapeHtml(job ? `Checked: ${monitorDate(job.checked_at)}` : 'No linked Studio run')}</small>${job?.detail ? `<small>${escapeHtml(job.detail)}</small>` : ''}</td>
+      <td>${resource(used.cput, requested.ncpus ? `${requested.ncpus} CPUs requested` : 'CPUs: —')}</td>
+      <td>${resource(used.mem, `Requested: ${requested.mem || '—'}`)}</td>
+      <td>${resource(used.walltime, `Limit: ${requested.walltime || '—'}`)}</td>
+      <td>${resource(used.jobfs, `Requested: ${requested.jobfs || '—'}`)}<small>${job?.usage_checked_at ? `Usage: ${escapeHtml(monitorDate(job.usage_checked_at))}` : ''}</small></td>
+      <td><div class="monitor-actions"><button class="button subtle small-button" data-monitor-run="${escapeHtml(recipe.path)}">Run…</button>${job ? `<button class="button ghost small-button" data-monitor-job="${escapeHtml(job.id)}">Details</button>` : ''}</div></td></tr>`;
+  }).join('') || '<tr><td colspan="9">No recipes match these filters.</td></tr>';
+}
+async function loadMonitor() {
+  if (!state.monitorUser || monitorBusy) return;
+  if (!state.analysis3Loaded) loadAnalysis3Versions();
+  monitorBusy = true;
+  const version = monitorVersion;
+  $('refreshMonitor').disabled = true;
+  $('monitorSummary').textContent = 'Loading recipe runs…';
+  try {
+    const data = await post('/recipe-monitor', monitorConnection());
+    if (version !== monitorVersion) return;
+    state.monitorRecipes = data.recipes;
+    const available = new Set(data.recipes.map((recipe) => recipe.path));
+    for (const path of monitorSelection) if (!available.has(path)) monitorSelection.delete(path);
+    $('monitorNote').textContent = `${data.unlinked_runs} older or imported runs have no library link; view them in Runs. Edited library recipes keep their source link. Usage values are the last PBS samples collected by Studio.`;
+    renderMonitor();
+    const pending = monitorVisible().rows.filter((recipe) => recipe.last_run);
+    let failures = 0;
+    $('monitorSummary').textContent = `${data.user} · Updating ${pending.length} visible runs from Gadi…`;
+    await Promise.all(Array.from({length: Math.min(4, pending.length)}, async () => {
+      while (pending.length && version === monitorVersion) {
+        const recipe = pending.shift();
+        try {
+          const latest = await api('/jobs/' + recipe.last_run.id);
+          if (version !== monitorVersion) return;
+          recipe.last_run = latest;
+          if (latest.stale) failures++;
+        } catch (error) { failures++; recipe.last_run.detail = error.message; }
+        if (version === monitorVersion) renderMonitor();
+      }
+    }));
+    if (version === monitorVersion) $('monitorSummary').textContent = data.library_available
+      ? `${data.user} · ${data.recipes.length} library recipes · Visible runs checked at ${new Date().toLocaleTimeString()}${failures ? ` · ${failures} checks unavailable; see row details` : ''}`
+      : 'No recipe library configured on this Studio server.';
+  } catch (error) {
+    if (version === monitorVersion) {
+      resetMonitorAccess();
+      showMonitorAccess(`Recipe monitor is unavailable: ${error.message}`);
+      toast(error.message, true);
+    }
+  } finally {
+    monitorBusy = false; $('refreshMonitor').disabled = false;
+    if (version === monitorVersion) renderMonitor();
+  }
+}
+$('refreshMonitor').addEventListener('click', loadMonitor);
+for (const id of ['monitorSearch', 'monitorStatusFilter']) $(id).addEventListener('input', () => { state.monitorPage = 0; renderMonitor(); });
+for (const [id, direction] of [['monitorPrevious', -1], ['monitorNext', 1]]) $(id).addEventListener('click', () => { state.monitorPage += direction; renderMonitor(); loadMonitor(); });
+$('username').addEventListener('input', resetMonitorAccess);
+$('username').addEventListener('change', checkMonitorAccess);
+$('monitorRows').addEventListener('click', async (event) => {
+  const run = event.target.closest('[data-monitor-run]');
+  if (run) openMonitorBatch([run.dataset.monitorRun]);
+  const details = event.target.closest('[data-monitor-job]');
+  if (details) { state.selectedJob = details.dataset.monitorJob; setView('runs'); }
+});
+function addRuntimeOption(select, value) {
+  if (![...select.options].some((option) => option.value === value)) select.add(new Option(value, value));
+}
+async function loadAnalysis3Versions() {
+  if (state.analysis3Loading || !state.monitorUser) return;
+  state.analysis3Loading = true;
+  const version = monitorVersion;
+  $('refreshAnalysis3').disabled = true;
+  $('analysis3Status').textContent = 'Reading available analysis3 modules from Gadi…';
+  try {
+    const result = await post('/recipe-monitor/analysis3', monitorConnection());
+    if (version !== monitorVersion) return;
+    for (const id of ['monitorAnalysis3', 'analysis3_module']) {
+      const select = $(id); const previous = select.value;
+      select.replaceChildren(new Option('Current / custom environment', ''));
+      for (const module of result.modules) addRuntimeOption(select, module);
+      if (previous) addRuntimeOption(select, previous);
+      select.value = previous;
+    }
+    state.analysis3Loaded = true;
+    $('analysis3Status').textContent = result.modules.length
+      ? 'Versions available on Gadi. The chosen version applies to each recipe in the batch; preflight checks ESMValTool availability.'
+      : 'No analysis3 modules found. Use the current/custom environment or check access to gdata/xp65.';
+  } catch (error) {
+    if (version === monitorVersion) $('analysis3Status').textContent = `Could not list analysis3 versions: ${error.message}. You can still use the current/custom environment.`;
+  } finally { state.analysis3Loading = false; $('refreshAnalysis3').disabled = false; }
+}
+function syncRuntimeFields() {
+  const module = $('analysis3_module').value;
+  $('setup_command').readOnly = $('esmvaltool_command').readOnly = !!module;
+  if (module) {
+    $('setup_command').value = `module purge; module use /opt/Modules/modulefiles /apps/Modules/modulefiles /apps/Modules/restricted-modulefiles /g/data/xp65/public/modules; module load ${module}`;
+    $('esmvaltool_command').value = 'esmvaltool';
+  }
+}
+function renderMonitorSelection(rows = monitorVisible().rows) {
+  const selected = rows.filter((recipe) => monitorSelection.has(recipe.path)).length;
+  $('monitorSelectPage').checked = !!rows.length && selected === rows.length;
+  $('monitorSelectPage').indeterminate = selected > 0 && selected < rows.length;
+  $('monitorSelectPage').disabled = !rows.length;
+  $('monitorRunSelected').disabled = !monitorSelection.size || !!state.batchBusy;
+  $('monitorRunSelected').textContent = `Run selected (${monitorSelection.size})…`;
+  $('monitorRunAll').disabled = !state.monitorRecipes?.length || !!state.batchBusy;
+  $('monitorRunAll').textContent = `Run all ${state.monitorRecipes?.length || 0} recipes…`;
+  const matchingSelected = monitorMatches().filter((recipe) => monitorSelection.has(recipe.path)).length;
+  $('monitorSelectionSummary').textContent = `${monitorSelection.size} selected across all pages${monitorSelection.size > matchingSelected ? ` · ${monitorSelection.size - matchingSelected} hidden by current filters` : ''}. Each recipe becomes one PBS job. Run all includes the entire library, regardless of filters.`;
+}
+function openMonitorBatch(paths) {
+  if (!state.monitorUser || state.batchBusy || !paths.length) return;
+  state.runBatch = {items: [...new Set(paths)].map((path) => ({path, status: 'Not checked'})), closed: false};
+  $('host').value = 'gadi.nci.org.au';
+  if (state.executionMode === 'ssh') $('username').value = state.monitorUser;
+  const module = $('monitorAnalysis3').value;
+  if (module) addRuntimeOption($('analysis3_module'), module);
+  $('analysis3_module').value = module; syncRuntimeFields();
+  clearRunReview();
+  $('batchReview').hidden = false;
+  $('runTitle').textContent = 'Run library recipes on Gadi';
+  $('batchProgress').textContent = 'Review the selection and per-job resources, then check the recipes.';
+  $('pbsScript').textContent = 'Preview shows the PBS script for the first selected recipe.';
+  $('submitButton').disabled = false;
+  renderBatch();
+  $('runModal').hidden = false;
+}
+function renderBatch() {
+  const batch = state.runBatch;
+  if (!batch) return;
+  const count = batch.items.length;
+  $('batchSummary').textContent = `${count} recipe${count === 1 ? '' : 's'} / ${count} PBS job${count === 1 ? '' : 's'} · ${$('analysis3_module').value || 'Current/custom environment'} · Per job: ${$('ncpus').value} CPUs, ${$('memory_gb').value} GB memory, ${$('jobfs_gb').value} GB jobfs, ${$('walltime').value} walltime · Charging project: ${$('project').value || 'not set'}`;
+  $('batchRecipes').innerHTML = batch.items.map((item, index) => `<div class="batch-item"><div><strong>${escapeHtml(item.path)}</strong><span>${escapeHtml(item.status)}${item.job ? ` · ${escapeHtml(item.job.job_id)}` : ''}</span>${item.error ? `<p class="batch-error">${escapeHtml(item.error)}</p>` : ''}${item.checks ? `<details><summary>Preflight details</summary>${item.checks.map((check) => `<p>${escapeHtml(check.level)} · ${escapeHtml(check.label)}: ${escapeHtml(check.detail)}</p>`).join('')}</details>` : ''}</div>${!batch.closed && !state.batchBusy ? `<button class="button ghost small-button" data-batch-remove="${index}" type="button" aria-label="Remove ${escapeHtml(item.path)}">Remove</button>` : ''}</div>`).join('');
+}
+function setBatchBusy(busy) {
+  state.batchBusy = busy;
+  $('runModal').querySelectorAll('input,select').forEach((input) => { input.disabled = busy; });
+  for (const id of ['previewButton', 'probeButton', 'closeModal', 'studioSettingsButton', 'runSettingsButton']) $(id).disabled = busy;
+  $('submitButton').disabled = busy || !!state.runBatch?.closed || !state.runBatch?.items.length;
+  $('stopBatch').hidden = !busy;
+  $('stopBatch').disabled = false;
+  renderBatch();
+  renderMonitor();
+}
+async function submitBatch() {
+  const batch = state.runBatch;
+  if (!batch || batch.closed || state.batchBusy || !batch.items.length) return;
+  const queue = state.reviewSignature && state.reviewSignature === reviewSignature();
+  const runSettings = settings();
+  state.batchStop = false;
+  setBatchBusy(true);
+  $('submitError').hidden = true;
+  try {
+    if (!queue) {
+      clearRunReview();
+      let next = 0; let checked = 0;
+      await Promise.all(Array.from({length: Math.min(3, batch.items.length)}, async () => {
+        while (next < batch.items.length && !state.batchStop) {
+          const item = batch.items[next++];
+          item.status = 'Checking'; item.error = ''; item.checks = null;
+          renderBatch();
+          try {
+            if (!item.yaml) item.yaml = (await api('/recipes/' + item.path.split('/').map(encodeURIComponent).join('/'))).yaml;
+            const result = await post('/remote/preflight', {yaml: item.yaml, settings: runSettings});
+            item.checks = result.checks;
+            item.status = result.ready ? 'Ready' : 'Blocked';
+          } catch (error) { item.status = 'Blocked'; item.error = error.message; }
+          checked++;
+          $('batchProgress').textContent = `Checked ${checked} of ${batch.items.length} recipes. No jobs submitted.`;
+          renderBatch();
+        }
+      }));
+      if (!state.batchStop && batch.items.every((item) => item.status === 'Ready')) {
+        state.reviewSignature = reviewSignature();
+        $('submitButton').textContent = `Queue ${batch.items.length} jobs ↗`;
+        $('batchProgress').textContent = `All ${batch.items.length} recipes passed preflight. Review the details and resources above, then queue the jobs.`;
+      } else {
+        $('batchProgress').textContent = state.batchStop ? 'Checks stopped. No jobs submitted. Review & check to start again.' : 'No jobs submitted. Remove blocked recipes or fix their settings, then review & check again.';
+      }
+    } else {
+      // Sequential submission stops at the first failure; never automatically retry qsub.
+      let submitted = 0;
+      for (const item of batch.items) {
+        if (state.batchStop) break;
+        item.status = 'Submitting'; renderBatch();
+        $('batchProgress').textContent = `Submitting ${submitted + 1} of ${batch.items.length} recipes…`;
+        try {
+          item.job = await post('/remote/submit', {yaml: item.yaml, recipe_path: item.path, settings: runSettings});
+          item.status = 'Submitted'; submitted++;
+          monitorSelection.delete(item.path);
+        } catch (error) {
+          item.status = 'Submission stopped'; item.error = error.message;
+          $('submitError').textContent = 'Submission stopped. Check Runs and qstat on Gadi before retrying this recipe; the request may have reached PBS. Remaining recipes were not submitted.';
+          $('submitError').hidden = false;
+          break;
+        }
+        renderBatch();
+      }
+      batch.closed = true;
+      for (const item of batch.items) if (item.status === 'Ready') item.status = 'Not submitted';
+      state.reviewSignature = null;
+      $('submitButton').textContent = 'Batch finished';
+      $('batchProgress').textContent = `${submitted} of ${batch.items.length} jobs confirmed submitted. See each result above. Close to return to the monitor; refresh to see their status.`;
+      renderMonitorSelection();
+    }
+  } finally { setBatchBusy(false); }
+}
+$('refreshAnalysis3').addEventListener('click', loadAnalysis3Versions);
+$('analysis3_module').addEventListener('change', () => {
+  syncRuntimeFields();
+  const value = $('analysis3_module').value;
+  if (value) addRuntimeOption($('monitorAnalysis3'), value);
+  $('monitorAnalysis3').value = value;
+});
+$('monitorRows').addEventListener('change', (event) => {
+  const input = event.target.closest('[data-monitor-select]');
+  if (!input) return;
+  if (input.checked) monitorSelection.add(input.dataset.monitorSelect); else monitorSelection.delete(input.dataset.monitorSelect);
+  renderMonitorSelection();
+});
+$('monitorSelectPage').addEventListener('change', () => {
+  const select = $('monitorSelectPage').checked;
+  for (const recipe of monitorVisible().rows) if (select) monitorSelection.add(recipe.path); else monitorSelection.delete(recipe.path);
+  renderMonitor();
+});
+$('monitorSelectMatching').addEventListener('click', () => { for (const recipe of monitorMatches()) monitorSelection.add(recipe.path); renderMonitor(); });
+$('monitorClearSelection').addEventListener('click', () => { monitorSelection.clear(); renderMonitor(); });
+$('monitorRunSelected').addEventListener('click', () => openMonitorBatch([...monitorSelection]));
+$('monitorRunAll').addEventListener('click', () => openMonitorBatch((state.monitorRecipes || []).map((recipe) => recipe.path)));
+$('batchRecipes').addEventListener('click', (event) => {
+  const button = event.target.closest('[data-batch-remove]');
+  if (!button || state.batchBusy || state.runBatch?.closed) return;
+  state.runBatch.items.splice(Number(button.dataset.batchRemove), 1);
+  clearRunReview(); renderBatch();
+  $('submitButton').disabled = !state.runBatch.items.length;
+});
+$('stopBatch').addEventListener('click', () => {
+  state.batchStop = true;
+  $('stopBatch').disabled = true;
+  $('batchProgress').textContent = 'Stopping after the current requests finish…';
+});
+
 function restoreSettings() {
   try {
     const saved = JSON.parse(localStorage.getItem(settingsKey) || '{}');
     if (!saved.username && /^[A-Za-z0-9_.-]+@[A-Za-z0-9_.-]+$/.test(saved.host || '')) {
       [saved.username, saved.host] = saved.host.split('@');
     }
-    Object.entries(saved).forEach(([id, value]) => { if ($(id)) $(id).value = value; });
+    Object.entries(saved).forEach(([id, value]) => { if (id === 'analysis3_module' && value) addRuntimeOption($(id), value); if ($(id)) $(id).value = value; });
+    $('monitorAnalysis3').value = '';
+    if (saved.analysis3_module) { addRuntimeOption($('monitorAnalysis3'), saved.analysis3_module); $('monitorAnalysis3').value = saved.analysis3_module; }
+    syncRuntimeFields();
   } catch (_) {}
+  renderStudioSettings();
 }
 async function probeRemote() {
   $('probeResult').textContent = 'Connecting…';
   $('probeError').hidden = true;
   $('probeError').textContent = '';
   try {
-    const s = settings(); const result = await post('/remote/probe', { host: s.host, username: s.username, esmvaltool_command: s.esmvaltool_command, setup_command: s.setup_command });
+    const s = settings(); const result = await post('/remote/probe', { host: s.host, username: s.username, esmvaltool_command: s.esmvaltool_command, setup_command: s.setup_command, analysis3_module: s.analysis3_module });
     if (s.esmvaltool_command === 'esmvaltool' && result.esmvaltool_path) $('esmvaltool_command').value = result.esmvaltool_path;
-    if (!s.project && result.project) $('project').value = result.project;
+    if (!$('project').value.trim() && result.project) $('project').value = result.project;
+    const project = $('project').value.trim();
     if (!s.config_dir && !s.config_file && result.config_file) $('config_file').value = result.config_file;
     if (!s.config_dir && !s.config_file && result.config_dir) $('config_dir').value = result.config_dir;
-    if (!s.work_dir && result.project && result.user) $('work_dir').value = `/scratch/${result.project}/${result.user}/esmval-gui-jobs`;
-    if (!s.storage && result.project) {
+    if (!s.work_dir && project && result.user) $('work_dir').value = `/scratch/${project}/${result.user}/esmval-gui-jobs`;
+    if (!s.storage && project) {
       const executableProject = (result.esmvaltool_path || s.esmvaltool_command).match(/^\/g\/data\/([A-Za-z0-9_-]+)\//)?.[1];
-      const paths = [`scratch/${result.project}`, ...(executableProject ? [`gdata/${executableProject}`] : []), ...(result.storage_paths || [])];
+      const paths = [`scratch/${project}`, ...(executableProject ? [`gdata/${executableProject}`] : []), ...(result.storage_paths || [])];
       $('storage').value = [...new Set(paths)].join('+');
     }
     $('probeResult').textContent = result.pbs === 'yes' ? (result.esmvaltool_path ? 'PBS and ESMValTool ready' : 'PBS ready · ESMValTool executable not found') : 'PBS unavailable';
     $('connectionBadge').textContent = result.execution_mode === 'local' ? 'ARE · direct PBS' : (result.pbs === 'yes' ? 'Gadi connected' : 'SSH connected');
-    $('connectionBadge').classList.add('connected'); settings();
+    $('connectionBadge').classList.add('connected'); settings(); if (!state.runBatch) checkMonitorAccess();
   } catch (err) {
     const reason = err.message.trim().split('\n').filter(Boolean).at(-1) || 'SSH connection failed.';
     const authenticationFailed = /Permission denied \(publickey/i.test(reason);
@@ -1029,10 +1429,13 @@ async function probeRemote() {
   }
 }
 async function previewScript() {
-  try { const result = await post('/remote/preview', { yaml: state.yaml, settings: settings() }); $('pbsScript').textContent = result.script; document.querySelector('.script-preview').open = true; return true; }
+  try {
+    const item = state.runBatch?.items[0];
+    if (item && !item.yaml) item.yaml = (await api('/recipes/' + item.path.split('/').map(encodeURIComponent).join('/'))).yaml;
+    const result = await post('/remote/preview', { yaml: item ? item.yaml : state.yaml, settings: settings() }); $('pbsScript').textContent = result.script; document.querySelector('.script-preview').open = true; return true; }
   catch (err) { toast(err.message, true); return false; }
 }
-function reviewSignature() { return JSON.stringify({yaml: state.yaml, settings: settings()}); }
+function reviewSignature() { return JSON.stringify({recipes: state.runBatch ? state.runBatch.items.map(({path, yaml}) => ({path, yaml})) : state.yaml, settings: settings()}); }
 function clearRunReview() {
   state.reviewSignature = null;
   $('runReview').hidden = true;
@@ -1042,6 +1445,7 @@ function clearRunReview() {
   $('submitButton').textContent = 'Review & check ↗';
 }
 async function submitJob() {
+  if (state.runBatch) return submitBatch();
   const signature = reviewSignature();
   const button = $('submitButton');
   if (state.reviewSignature !== signature) {
@@ -1060,8 +1464,8 @@ async function submitJob() {
   button.disabled = true; button.textContent = 'Submitting…';
   $('submitError').hidden = true;
   try {
-    const result = await post('/remote/submit', {yaml: state.yaml, settings: settings()});
-    $('runModal').hidden = true; clearRunReview(); toast('Submitted PBS job ' + result.job_id); setTab('runs');
+    const result = await post('/remote/submit', {yaml: state.yaml, settings: settings(), recipe_path: state.libraryPath});
+    $('runModal').hidden = true; clearRunReview(); toast('Submitted PBS job ' + result.job_id); setView('runs');
   } catch (err) {
     $('submitError').textContent = `Submission failed: ${err.message}`;
     $('submitError').hidden = false;
@@ -1192,7 +1596,8 @@ async function downloadOutput() {
     document.body.append(link); link.click(); link.remove();
   } catch (err) { $('outputStatus').textContent = err.message; }
 }
-document.querySelectorAll('.tab').forEach((button) => button.addEventListener('click', () => setTab(button.dataset.tab)));
+document.querySelectorAll('[data-tab]').forEach((button) => button.addEventListener('click', () => setTab(button.dataset.tab)));
+document.querySelectorAll('[data-view]').forEach((button) => button.addEventListener('click', () => setView(button.dataset.view)));
 const newRecipeForm = $('newRecipeForm');
 attachScriptPicker(newRecipeForm.querySelector('.recipe-form-section:last-of-type'), newRecipeForm.elements.script_path);
 newRecipeForm.querySelector('.esgf-wizard-search').innerHTML = esgfSearchMarkup();
@@ -1348,7 +1753,7 @@ document.addEventListener('keydown', (event) => {
     event.preventDefault(); saveRecipe(event.shiftKey);
   }
 });
-$('runButton').addEventListener('click', () => { if (!state.yaml) return toast('Open a recipe first.', true); clearRunReview(); $('runModal').hidden = false; });
+$('runButton').addEventListener('click', () => { if (!state.yaml) return toast('Open a recipe first.', true); state.runBatch = null; $('batchReview').hidden = true; $('runTitle').textContent = 'Run on Gadi'; $('submitButton').disabled = false; clearRunReview(); $('runModal').hidden = false; });
 $('closeScriptViewer').addEventListener('click', closeScriptViewer);
 $('scriptModal').addEventListener('click', (event) => { if (event.target === $('scriptModal')) closeScriptViewer(); });
 document.addEventListener('keydown', (event) => { if (event.key === 'Escape' && !$('scriptModal').hidden) closeScriptViewer(); });
@@ -1356,10 +1761,10 @@ $('copyScriptSource').addEventListener('click', async () => {
   try { await navigator.clipboard.writeText(scriptViewerSource); toast('Script source copied.'); }
   catch (_) { toast('Could not copy script source.', true); }
 });
-$('closeModal').addEventListener('click', () => $('runModal').hidden = true);
-$('runModal').addEventListener('click', (event) => { if (event.target === $('runModal')) $('runModal').hidden = true; });
-$('runModal').addEventListener('input', (event) => { if (event.target.matches('input,select,textarea')) clearRunReview(); });
-$('runModal').addEventListener('change', (event) => { if (event.target.matches('input,select,textarea')) clearRunReview(); });
+$('closeModal').addEventListener('click', () => { if (!state.batchBusy) $('runModal').hidden = true; });
+$('runModal').addEventListener('click', (event) => { if (event.target === $('runModal') && !state.batchBusy) $('runModal').hidden = true; });
+$('runModal').addEventListener('input', (event) => { if (event.target.matches('input,select,textarea')) { clearRunReview(); if (state.runBatch) renderBatch(); } });
+$('runModal').addEventListener('change', (event) => { if (event.target.matches('input,select,textarea')) { clearRunReview(); if (state.runBatch) renderBatch(); } });
 $('probeButton').addEventListener('click', probeRemote); $('previewButton').addEventListener('click', previewScript); $('submitButton').addEventListener('click', submitJob);
 $('refreshJobs').addEventListener('click', refreshJobs); $('refreshLog').addEventListener('click', () => { if (state.selectedJob) selectJob(state.selectedJob); });
 $('outputSearch').addEventListener('input', renderOutputFiles);
@@ -1398,10 +1803,10 @@ function startStudio(health) {
   document.querySelector('.shell').inert = false;
   try {
     const draft = JSON.parse(sessionStorage.getItem(draftKey) || 'null');
-    if (draft?.yaml && window.confirm(`Recover the edited draft of ${draft.name || 'recipe.yml'} from this tab?`)) setRecipe(draft.yaml, draft.name || 'recipe.yml', true, null, true);
+    if (draft?.yaml && window.confirm(`Recover the edited draft of ${draft.name || 'recipe.yml'} from this tab?`)) setRecipe(draft.yaml, draft.name || 'recipe.yml', true, null, true, draft.libraryPath || null);
     else sessionStorage.removeItem(draftKey);
   } catch (_) { sessionStorage.removeItem(draftKey); }
-  loadCatalogue(); loadLibrary();
+  loadCatalogue(); loadLibrary(); checkMonitorAccess();
 }
 $('authForm').addEventListener('submit', async (event) => {
   event.preventDefault();

@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>ESMValTool Studio</title>
   <script>try { if (localStorage.getItem('esmval-studio-theme') === 'dark') document.documentElement.dataset.theme = 'dark'; } catch (_) {}</script>
-  <link rel="stylesheet" href="style.css?v=studio-recipe-save-1">
+  <link rel="stylesheet" href="style.css?v=studio-recipe-monitor-1">
 </head>
 <body>
   <div class="shell">
@@ -20,6 +20,17 @@
         <button id="runButton" class="button primary">Submit to Gadi <span>↗</span></button>
       </div>
     </header>
+    <nav class="studio-nav" aria-label="Studio navigation">
+      <button class="studio-nav-item active" data-view="editor" aria-current="page" type="button">Recipes</button>
+      <button class="studio-nav-item" data-view="runs" type="button">Runs</button>
+      <button id="monitorNavButton" class="studio-nav-item" data-view="monitor" type="button" hidden>Recipe monitor</button>
+      <button id="studioSettingsButton" class="studio-nav-item studio-settings-button" type="button" aria-haspopup="dialog">Settings <span id="studioProjectLabel"></span></button>
+    </nav>
+    <form id="monitorAccessPanel" class="monitor-access" hidden>
+      <p id="monitorAccessStatus" role="status"></p>
+      <label id="monitorUsernameLabel">NCI username <input id="monitorUsername" autocomplete="username" placeholder="From SSH config if blank"></label>
+      <button id="retryMonitorAccess" class="button subtle small-button" type="submit">Check monitor access</button>
+    </form>
     <div id="recipeWorkspace" class="workspace">
       <aside class="library panel">
         <div class="panel-heading"><div><div class="eyebrow">EXPLORE</div><h2>Recipe library</h2></div><span id="recipeCount" class="count">0</span></div>
@@ -43,7 +54,7 @@
           <div class="document-head"><div class="eyebrow">WORKSPACE / RECIPE</div><h1 id="recipeTitle">Select a recipe</h1><p id="recipeDescription">Load a recipe from the library or open a local YAML file.</p></div>
           <div class="document-controls"><span id="documentName" class="filename">No file</span><span id="dirtyMark" class="dirty" hidden>Unsaved</span><button id="saveRecipeAs" class="button ghost small-button" type="button" title="Save a copy (Ctrl/Cmd+Shift+S)">Save as…</button><button id="editYamlButton" class="button subtle small-button" type="button">Edit YAML</button></div>
         </div>
-        <div class="tabs"><button class="tab active" data-tab="pipeline">Pipeline</button><button class="tab" data-tab="builder">Preprocessor builder</button><button class="tab" data-tab="yaml">YAML editor</button><button class="tab" data-tab="config">Configuration</button><button class="tab" data-tab="runs">Runs</button><span class="tab-spacer"></span><span id="validationStatus" class="validation-status">Ready</span></div>
+        <div class="tabs"><button class="tab active" data-tab="pipeline">Pipeline</button><button class="tab" data-tab="builder">Preprocessor builder</button><button class="tab" data-tab="yaml">YAML editor</button><button class="tab" data-tab="config">Configuration</button><span class="tab-spacer"></span><span id="validationStatus" class="validation-status">Ready</span></div>
         <section id="pipelineTab" class="tab-content active">
           <div id="recipeGuide" class="recipe-guide" hidden></div>
           <div id="recipeStory" class="recipe-story" hidden></div>
@@ -59,13 +70,6 @@
           <div class="builder-layout"><div class="builder-left"><div class="builder-subhead">PROFILE STEPS <span id="builderStepCount"></span></div><div id="builderSteps" class="builder-steps"></div><div class="builder-subhead catalogue-head">ADD A BRICK</div><input id="brickSearch" class="brick-search" placeholder="Search steps, categories, descriptions"><div id="brickList" class="brick-list"></div></div><div id="brickDetails" class="brick-details"><div class="empty-state">Select a brick to see its documentation and parameters.</div></div></div>
         </section>
         <section id="yamlTab" class="tab-content yaml-tab"><div class="editor-header"><strong id="yamlFileName">recipe.yml</strong><span>Changes update the pipeline as you type</span><button id="viewPipeline" class="button subtle small-button" type="button">View pipeline →</button></div><div id="yamlFeedback" class="yaml-feedback" role="status" hidden></div><textarea id="yamlEditor" spellcheck="false" aria-label="Recipe YAML"></textarea></section>
-        <section id="runsTab" class="tab-content"><div class="runs-header"><div><div class="eyebrow">EXECUTION</div><h2>Recent jobs</h2></div><button id="refreshJobs" class="button subtle">Refresh</button></div><div id="jobsList" class="jobs-list"><p class="empty">No jobs submitted yet.</p></div><div id="jobDetails" class="job-details" hidden><div class="job-details-head"><strong id="selectedJobTitle"></strong><div><button id="refreshLog" class="button subtle">Refresh run</button> <button id="cancelJob" class="button ghost" hidden>Cancel job</button></div></div><div id="selectedJobState" class="job-state"></div><div class="log-grid"><div><label>Output</label><pre id="stdoutLog"></pre></div><div><label>Errors</label><pre id="stderrLog"></pre></div></div>
-          <section class="run-outputs" aria-labelledby="outputsTitle">
-            <div class="outputs-heading"><div><h3 id="outputsTitle">Outputs</h3><p id="outputsSummary">Select a run to view its results.</p></div><button id="downloadOutput" class="button subtle" disabled>Download file</button></div>
-            <div class="output-filters"><label>Find a file<input id="outputSearch" type="search" placeholder="Filter by file name or diagnostic"></label><label>File type<select id="outputKind"><option value="all">All files</option><option value="plots">Plots</option><option value="text">Text and provenance</option><option value="data">Data files</option></select></label></div>
-            <p id="outputStatus" class="output-status" role="status"></p>
-            <div class="outputs-layout"><div id="outputFiles" class="output-files" aria-label="Run output files"></div><div id="outputPreview" class="output-preview"><p class="empty">Plots and text previews appear here.</p></div></div>
-          </section></div></section>
         <section id="configTab" class="tab-content config-tab">
           <div class="config-heading"><div><div class="eyebrow">ESMVALTOOL SETTINGS</div><h2>Configuration</h2><p>Load layered YAML files to see their combined settings and where each value comes from.</p></div></div>
           <div class="config-import">
@@ -84,6 +88,34 @@
 
       <aside class="inspector panel"><div class="panel-heading"><div><div class="eyebrow">INSPECT</div><h2>Details</h2></div></div><div id="inspectorContent" class="inspector-content"><div class="empty-state small">Select a profile, variable, or diagnostic in the pipeline.</div></div></aside>
     </div>
+    <main id="studioGlobalView" class="studio-global panel" hidden>
+        <section id="runsTab" class="tab-content"><div class="runs-header"><div><div class="eyebrow">STUDIO / ALL RECIPES</div><h2>Runs</h2><p class="hint">Recent jobs across all recipes submitted from this Studio account.</p></div><button id="refreshJobs" class="button subtle">Refresh</button></div><div id="jobsList" class="jobs-list"><p class="empty">No jobs submitted yet.</p></div><div id="jobDetails" class="job-details" hidden><div class="job-details-head"><strong id="selectedJobTitle"></strong><div><button id="refreshLog" class="button subtle">Refresh run</button> <button id="cancelJob" class="button ghost" hidden>Cancel job</button></div></div><div id="selectedJobState" class="job-state"></div><div class="log-grid"><div><label>Output</label><pre id="stdoutLog"></pre></div><div><label>Errors</label><pre id="stderrLog"></pre></div></div>
+          <section class="run-outputs" aria-labelledby="outputsTitle">
+            <div class="outputs-heading"><div><h3 id="outputsTitle">Outputs</h3><p id="outputsSummary">Select a run to view its results.</p></div><button id="downloadOutput" class="button subtle" disabled>Download file</button></div>
+            <div class="output-filters"><label>Find a file<input id="outputSearch" type="search" placeholder="Filter by file name or diagnostic"></label><label>File type<select id="outputKind"><option value="all">All files</option><option value="plots">Plots</option><option value="text">Text and provenance</option><option value="data">Data files</option></select></label></div>
+            <p id="outputStatus" class="output-status" role="status"></p>
+            <div class="outputs-layout"><div id="outputFiles" class="output-files" aria-label="Run output files"></div><div id="outputPreview" class="output-preview"><p class="empty">Plots and text previews appear here.</p></div></div>
+          </section></div></section>
+        <section id="monitorTab" class="tab-content">
+          <div class="runs-header"><div><div class="eyebrow">STUDIO / ALL RECIPES</div><h2>Recipe monitor</h2></div><button id="refreshMonitor" class="button subtle">Refresh visible runs</button></div>
+          <p class="hint">Latest Studio run per library recipe. Run opens the Gadi resource and preflight review. Usage is reported by PBS; — means unavailable.</p>
+          <div class="monitor-filters"><label>Find a recipe<input id="monitorSearch" type="search" placeholder="Recipe name, path or realm"></label><label>Last run status<select id="monitorStatusFilter"><option value="">All statuses</option><option value="failed">Failed</option><option value="succeeded">Succeeded</option><option value="never">Not run</option><option value="active">Active</option><option value="cancelled">Cancelled</option><option value="unknown">Unknown / unchecked</option></select></label></div>
+          <div class="monitor-batch-toolbar">
+            <label>Gadi analysis3 version<select id="monitorAnalysis3"><option value="">Current / custom environment</option></select></label>
+            <button id="refreshAnalysis3" class="button subtle small-button" type="button">Reload versions</button>
+            <button id="monitorSelectMatching" class="button subtle small-button" type="button">Select all matching</button>
+            <button id="monitorClearSelection" class="button ghost small-button" type="button">Clear selection</button>
+            <button id="monitorRunSelected" class="button primary" type="button" disabled>Run selected (0)…</button>
+            <button id="monitorRunAll" class="button subtle" type="button" disabled>Run all recipes…</button>
+          </div>
+          <p id="analysis3Status" class="hint" role="status"></p>
+          <p id="monitorSelectionSummary" class="hint" role="status">Tick recipes to build a batch. Selection is kept across pages and filters.</p>
+          <p id="monitorSummary" class="hint" role="status"></p>
+          <div class="monitor-table-wrap" tabindex="0" role="region" aria-label="Recipe runs and Gadi resources"><table class="monitor-table"><thead><tr><th scope="col"><input id="monitorSelectPage" type="checkbox" aria-label="Select all recipes on this page"></th><th scope="col">Recipe</th><th scope="col">Last submitted</th><th scope="col">Status</th><th scope="col">CPU time used</th><th scope="col">Memory used</th><th scope="col">Walltime used</th><th scope="col">Jobfs used</th><th scope="col">Actions</th></tr></thead><tbody id="monitorRows"></tbody></table></div>
+          <div class="monitor-pagination"><button id="monitorPrevious" class="button subtle small-button">Previous</button><span id="monitorPage"></span><button id="monitorNext" class="button subtle small-button">Next</button></div>
+          <p id="monitorNote" class="hint"></p>
+        </section>
+    </main>
   </div>
   <div id="authGate" class="auth-gate">
     <form id="authForm" class="auth-card" aria-label="Unlock ESMValTool Studio">
@@ -136,10 +168,15 @@
     <div class="modal" role="dialog" aria-modal="true" aria-labelledby="runTitle">
       <div class="modal-header"><div><div class="eyebrow">PBS SUBMISSION</div><h2 id="runTitle">Run on Gadi</h2></div><button id="closeModal" class="icon-button" aria-label="Close">×</button></div>
       <div class="modal-body">
+        <section id="batchReview" class="batch-review" hidden>
+          <p id="batchSummary"></p><p class="hint">One PBS job per recipe, using the library YAML and the settings below. Editor drafts are not included. Keep this tab open until submission finishes.</p>
+          <div id="batchRecipes" class="batch-recipes" aria-label="Batch recipe checks"></div>
+          <p id="batchProgress" role="status"></p>
+        </section>
         <div class="form-grid">
           <label>SSH host <input id="host" value="gadi.nci.org.au" autocomplete="off"></label>
           <label>NCI username <span class="optional">optional</span><input id="username" autocomplete="username" placeholder="From SSH config if blank"></label>
-          <label>NCI project <input id="project" placeholder="e.g. ab12"></label>
+          <label>Compute project <input id="project" placeholder="e.g. ab12" aria-describedby="projectHint"></label>
           <label>Queue <select id="queue"><option>normal</option><option>express</option><option>normalbw</option><option>expressbw</option></select></label>
           <label>Walltime <input id="walltime" value="00:20:00" placeholder="HH:MM:SS"></label>
           <label>CPUs <input id="ncpus" type="number" min="1" max="48" value="1"></label>
@@ -147,11 +184,13 @@
           <label>Jobfs (GB) <input id="jobfs_gb" type="number" min="1" value="10"></label>
           <label>Storage <input id="storage" placeholder="scratch/ab12+gdata/ab12"></label>
           <label class="wide">Working directory on Gadi <input id="work_dir" placeholder="/scratch/PROJECT/USER/esmval-gui-jobs"></label>
+          <label class="wide">Analysis3 version<select id="analysis3_module"><option value="">Current / custom environment</option></select></label>
           <label class="wide">ESMValTool executable <input id="esmvaltool_command" value="esmvaltool" placeholder="esmvaltool or /absolute/path/bin/esmvaltool"></label>
           <label class="wide">Environment setup command <input id="setup_command" placeholder="Optional: source /path/to/activate"></label>
           <label class="wide">ESMValTool config directory <input id="config_dir" placeholder="Optional absolute path"></label>
           <label class="wide">ESMValTool config file <input id="config_file" placeholder="Optional legacy config-user.yml path"></label>
         </div>
+        <p id="projectHint" class="hint">Compute project is shared across single runs and batches. <button id="runSettingsButton" class="button ghost small-button" type="button">Studio settings</button></p>
         <p id="executionHint" class="ssh-hint">Use gadi.nci.org.au or an SSH alias. Leave the username blank to use your SSH config.</p>
         <div class="remote-actions"><button id="probeButton" class="button subtle">Check Gadi connection</button><span id="probeResult"></span></div>
         <p id="probeError" class="remote-error" role="alert" hidden></p>
@@ -159,8 +198,20 @@
         <div id="runReview" class="run-review" role="status" hidden></div>
         <details class="script-preview"><summary>Review PBS script</summary><pre id="pbsScript">Fill in the settings and select Preview.</pre></details>
       </div>
-      <div class="modal-footer"><button id="previewButton" class="button ghost">Preview script</button><button id="submitButton" class="button primary">Review &amp; check ↗</button></div>
+      <div class="modal-footer"><button id="stopBatch" class="button ghost" type="button" hidden>Stop after current requests</button><button id="previewButton" class="button ghost">Preview script</button><button id="submitButton" class="button primary">Review &amp; check ↗</button></div>
     </div>
+  </div>
+  <div id="settingsModal" class="modal-backdrop" hidden>
+    <form id="studioSettingsForm" class="modal studio-settings-modal" role="dialog" aria-modal="true" aria-labelledby="studioSettingsTitle">
+      <div class="modal-header"><div><div class="eyebrow">STUDIO</div><h2 id="studioSettingsTitle">Settings</h2></div><button id="closeSettings" class="icon-button" type="button" aria-label="Close settings">×</button></div>
+      <div class="modal-body">
+        <div class="form-grid"><label class="wide">Default Gadi compute project<input id="defaultComputeProject" placeholder="e.g. ab12" pattern="[A-Za-z0-9][A-Za-z0-9_\-]{0,31}" maxlength="32" aria-describedby="defaultProjectHint"></label></div>
+        <p id="defaultProjectHint" class="hint">Charges single-recipe runs, selected recipes, and Run all to this project. You must have access to the project on Gadi. Leave blank to detect your default when checking the Gadi connection.</p>
+        <p class="hint">Saved in this browser for this Studio URL. Changes apply to future submissions. Working directory and storage are configured separately in the run review.</p>
+        <p id="settingsError" class="remote-error" role="alert" hidden></p>
+      </div>
+      <div class="modal-footer"><button id="cancelSettings" class="button ghost" type="button">Cancel</button><button class="button primary" type="submit">Save settings</button></div>
+    </form>
   </div>
   <div id="scriptModal" class="modal-backdrop" hidden>
     <div class="modal script-viewer" role="dialog" aria-modal="true" aria-labelledby="scriptViewerTitle">
@@ -171,6 +222,6 @@
     </div>
   </div>
   <input id="fileInput" type="file" accept=".yml,.yaml,text/yaml" hidden>
-  <script src="app.js?v=studio-recipe-save-1" defer></script>
+  <script src="app.js?v=studio-recipe-monitor-1" defer></script>
 </body>
 </html>
