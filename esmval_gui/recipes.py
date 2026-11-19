@@ -525,6 +525,8 @@ def _node_parent(recipe: dict, kind: str, path: list):
         and isinstance(path[1], str)
         or kind == "profile" and len(path) == 2 and path[0] == "preprocessors"
         and isinstance(path[1], str)
+        or kind == "script" and len(path) == 4 and path[0] == "diagnostics"
+        and isinstance(path[1], str) and path[2] == "scripts" and isinstance(path[3], str)
     )
     if not valid:
         raise ValueError("Invalid recipe node path")
@@ -551,6 +553,65 @@ def read_node(source: str, kind: str, path: list) -> dict:
     parser.dump(parent[key], stream)
     return {"definition": stream.getvalue(), "name": str(key) if kind != "dataset" else "",
             "settings": plain(parent[key])}
+
+
+def delete_node(source: str, kind: str, path: list, all_occurrences: bool = False) -> str:
+    parser, recipe = _editable(source)
+    _node_parent(recipe, kind, path)
+    paths = [path]
+    if all_occurrences:
+        if kind != "dataset":
+            raise ValueError("Only datasets have multiple definitions")
+        group = next(item for item in summarize(source)["graph"]["datasets"]
+                     if any(occurrence["path"] == path for occurrence in item["occurrences"]))
+        # Remove higher list indexes first, so the remaining paths stay valid.
+        paths = sorted((item["path"] for item in group["occurrences"]),
+                       key=lambda item: item[-1], reverse=True)
+    for target in paths:
+        _detach_anchored_containers(recipe, target)
+        parent, key = _node_parent(recipe, kind, target)
+        del parent[key]
+
+    for diagnostic_name, diagnostic in (recipe.get("diagnostics") or {}).items():
+        if not isinstance(diagnostic, dict):
+            continue
+        if kind == "profile":
+            variables = diagnostic.get("variables") or {}
+            if isinstance(variables, dict):
+                for name, variable in variables.items():
+                    if isinstance(variable, dict) and variable.get("preprocessor") == path[-1]:
+                        variable_path = ["diagnostics", diagnostic_name, "variables", name, "preprocessor"]
+                        _detach_anchored_containers(recipe, variable_path)
+                        target = recipe["diagnostics"][diagnostic_name]["variables"][name]
+                        if any("preprocessor" in merged for merged in getattr(target, "merge", [])):
+                            # An explicit override prevents a YAML merge from restoring the deleted profile.
+                            target["preprocessor"] = "default"
+                        else:
+                            del target["preprocessor"]
+        if kind in {"diagnostic", "script"}:
+            # Explicit ancestor references to deleted tasks must not dangle.
+            reference = path[1] if kind == "diagnostic" else f"{path[1]}/{path[3]}"
+            containers = [["diagnostics", diagnostic_name]]
+            scripts = diagnostic.get("scripts") or {}
+            if isinstance(scripts, dict):
+                containers.extend(["diagnostics", diagnostic_name, "scripts", name] for name in scripts)
+            for container_path in containers:
+                current = recipe
+                for part in container_path:
+                    current = current[part]
+                if not isinstance(current, dict) or not isinstance(current.get("ancestors"), list):
+                    continue
+                ancestors = current["ancestors"]
+                kept = [ancestor for ancestor in ancestors if not (
+                    isinstance(ancestor, str) and (ancestor == reference
+                    or kind == "diagnostic" and ancestor.startswith(reference + "/")))]
+                if kept != ancestors:
+                    _detach_anchored_containers(recipe, [*container_path, "ancestors"])
+                    current = recipe
+                    for part in container_path:
+                        current = current[part]
+                    current["ancestors"] = kept
+    return _dump_edit(parser, recipe, source)
 
 
 def _detach_anchored_containers(recipe: dict, path: list) -> None:

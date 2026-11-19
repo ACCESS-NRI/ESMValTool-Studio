@@ -93,6 +93,10 @@ class NodeEdit(NodeReference):
     name: str | None = None
 
 
+class NodeDelete(NodeReference):
+    all_occurrences: bool = False
+
+
 class NodeFields(NodeReference):
     fields: dict[str, str]
     removed: list[str] = Field(default_factory=list)
@@ -300,6 +304,15 @@ def edit_node(body: NodeEdit):
     try:
         source, path = recipes.edit_node(body.yaml, body.kind, body.path, body.definition, body.name)
         return {"yaml": source, "summary": recipes.summarize(source), "path": path}
+    except ValueError as exc:
+        raise HTTPException(400, str(exc)) from exc
+
+
+@app.post("/api/node/delete")
+def delete_node(body: NodeDelete):
+    try:
+        source = recipes.delete_node(body.yaml, body.kind, body.path, body.all_occurrences)
+        return {"yaml": source, "summary": recipes.summarize(source)}
     except ValueError as exc:
         raise HTTPException(400, str(exc)) from exc
 

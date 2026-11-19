@@ -295,6 +295,21 @@ function renderSummary() {
   const heading = (number, label, kind) => `<div class="column-title"><div><span>${number}</span> ${label}</div><button class="column-add" data-create-kind="${kind}" type="button" title="Add ${kind === 'profile' ? 'preprocessor' : kind}" aria-label="Add ${kind === 'profile' ? 'preprocessor' : kind}">+</button></div>`;
   $('pipeline').innerHTML = `<svg id="pipelineConnections" class="pipeline-connections" aria-hidden="true"></svg><div class="pipeline-column">${heading('01', 'DATASETS', 'dataset')}${datasets}</div><div class="pipeline-column">${heading('02', 'PREPROCESSORS', 'profile')}${profiles}</div><div class="pipeline-column">${heading('03', 'VARIABLES', 'variable')}${variables}</div><div class="pipeline-column">${heading('04', 'DIAGNOSTICS', 'diagnostic')}${diagnostics}</div>`;
   $('pipeline').querySelectorAll('button[data-kind]').forEach((button) => button.addEventListener('click', () => selectItem(button.dataset.kind, button.dataset.id)));
+  $('pipeline').querySelectorAll('.pipeline-item').forEach((button) => {
+    const kind = button.dataset.kind;
+    const items = kind === 'profile' ? pipelineProfiles() : summary.graph[kind === 'dataset' ? 'datasets' : kind === 'variable' ? 'variables' : 'diagnostics'];
+    const item = items.find((entry) => entry.id === button.dataset.id);
+    if (item.default) return;
+    const row = document.createElement('div'); row.className = 'pipeline-node';
+    button.before(row); row.append(button);
+    const remove = document.createElement('button');
+    remove.type = 'button'; remove.className = 'pipeline-delete';
+    const label = `Delete ${kind === 'profile' ? 'preprocessor' : kind} ${item.label || variableListName(item)}`;
+    remove.title = label; remove.setAttribute('aria-label', label);
+    remove.innerHTML = deleteIcon;
+    remove.addEventListener('click', () => deleteRecipeNode(kind, item, null, kind === 'dataset', remove));
+    row.append(remove);
+  });
   $('pipeline').querySelectorAll('[data-create-kind]').forEach((button) => button.addEventListener('click', () => mountCreateForm(button.dataset.createKind)));
   $('messages').innerHTML = summary.messages.map((message) => `<div class="message error-message">${escapeHtml(message)}</div>`).join('');
   if (state.selected) selectItem(state.selected.kind, state.selected.id);
@@ -435,8 +450,35 @@ function updateConnections() {
   }
   layer.innerHTML = paths.join('');
 }
+const deleteIcon = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18M9 6V3h6v3M5 6l1 15h12l1-15M10 10v7M14 10v7"/></svg>';
+async function deleteRecipeNode(kind, item, editor = null, allOccurrences = false, button = null) {
+  const label = {dataset: 'dataset', variable: 'variable', profile: 'preprocessor', diagnostic: 'diagnostic', script: 'script'}[kind];
+  const name = item.label || item.name || item.id;
+  const path = kind === 'script' ? ['diagnostics', item.diagnostic, 'scripts', item.name] : nodePath(kind, item, editor);
+  let detail = 'This removes it from the current recipe.';
+  if (kind === 'dataset') detail = allOccurrences
+    ? `This removes all ${item.occurrences.length} input definition(s) in this dataset group.`
+    : `This removes only the selected definition in ${item.occurrences.find((entry) => JSON.stringify(entry.path) === JSON.stringify(path)).scope}.`;
+  if (kind === 'profile') detail = 'Variables using this preprocessor will use ESMValCore defaults.';
+  if (kind === 'diagnostic') detail = `This also removes its ${item.variables.length} variables and ${item.scripts.length} scripts, and explicit ancestor references to this diagnostic.`;
+  if (kind === 'script') detail = 'This also removes explicit ancestor references to this script.';
+  if (!window.confirm(`Delete ${label} “${name}”?\n\n${detail}`)) return;
+  if (button) button.disabled = true;
+  const source = state.yaml;
+  try {
+    const result = await post('/node/delete', {yaml: source, kind, path, all_occurrences: allOccurrences});
+    if (state.yaml !== source) { toast('The recipe changed while deleting. Please try again.', true); return; }
+    clearTimeout(state.parseTimer);
+    state.selected = kind === 'script' ? {kind: 'diagnostic', id: item.diagnostic} : null;
+    if (kind === 'profile') { state.builderBrick = ''; state.builderEditing = false; }
+    $('inspectorContent').innerHTML = '<div class="empty-state small">Select a component or use + to add one.</div>';
+    applyEdit(result);
+    toast(`${label[0].toUpperCase() + label.slice(1)} deleted from recipe.`);
+  } catch (err) { toast(err.message, true); }
+  finally { if (button?.isConnected) button.disabled = false; }
+}
 function nodePath(kind, item, editor) {
-  if (kind === 'dataset') return item.occurrences[Number(editor.querySelector('#nodeOccurrence').value)].path;
+  if (kind === 'dataset') return item.occurrences[Number(editor?.querySelector('#nodeOccurrence')?.value || 0)].path;
   if (kind === 'variable') return ['diagnostics', item.diagnostic, 'variables', item.name];
   if (kind === 'diagnostic') return ['diagnostics', item.id];
   return ['preprocessors', item.id];
@@ -499,6 +541,11 @@ function mountNodeEditor(kind, item) {
   const anchor = kind === 'diagnostic' ? $('diagnosticVariables') : $('inspectorContent').querySelector('.inspector-title');
   anchor.insertAdjacentHTML('afterend', `<div id="nodeEditor" class="inspector-section node-editor"><div class="eyebrow">EDIT ${label.toUpperCase()}</div>${profileBuilder}${choices}${name}${variableHint}<div id="nodeFields"></div><details class="node-advanced"><summary>Advanced YAML</summary><p class="hint">Edit nested settings or the complete definition here.</p><label class="field">Definition (YAML)<textarea id="nodeDefinition" rows="10" spellcheck="false" aria-label="${label} YAML definition"></textarea></label><button id="saveNodeYaml" class="button subtle small-button">Save YAML definition</button></details><div class="node-editor-actions"><button id="saveNodeFields" class="button primary small-button">Save ${label.toLowerCase()}</button><button id="resetNode" class="button ghost small-button">Reset</button></div><details class="node-add"><summary>Add setting</summary><label class="field">Name<input id="newNodeField" placeholder="e.g. start_year"></label><label class="field">Value<input id="newNodeValue" placeholder="e.g. 2000"></label></details><p id="nodeEditStatus" class="hint" role="status"></p></div>`);
   const editor = $('nodeEditor');
+  const deletion = document.createElement('div'); deletion.className = 'node-delete-actions';
+  deletion.innerHTML = `<button id="deleteNode" type="button" class="button danger small-button">${deleteIcon} Delete ${kind === 'dataset' && occurrences.length > 1 ? 'selected definition' : label.toLowerCase()}</button>${occurrences.length > 1 ? '<button id="deleteDatasetGroup" type="button" class="button danger small-button">Delete all definitions</button>' : ''}`;
+  editor.querySelector('.eyebrow').after(deletion);
+  deletion.querySelector('#deleteNode').addEventListener('click', (event) => deleteRecipeNode(kind, item, editor, false, event.currentTarget));
+  deletion.querySelector('#deleteDatasetGroup')?.addEventListener('click', (event) => deleteRecipeNode(kind, item, editor, true, event.currentTarget));
   editor.querySelector('#editorBuilder')?.addEventListener('click', () => { state.builderProfile = item.id; state.builderBrick = ''; setTab('builder'); });
   editor.querySelector('#nodeOccurrence')?.addEventListener('change', () => loadNodeEditor(kind, item, editor));
   editor.querySelector('#resetNode').addEventListener('click', () => loadNodeEditor(kind, item, editor));
@@ -678,6 +725,14 @@ function selectItem(kind, id) {
       button.addEventListener('click', () => openScriptViewer(item.scripts[Number(button.dataset.scriptIndex)]));
     });
     mountNodeEditor(kind, item);
+    $('diagnosticScripts').querySelectorAll('.diagnostic-script').forEach((row, index) => {
+      const button = document.createElement('button');
+      button.type = 'button'; button.className = 'button danger small-button';
+      button.textContent = 'Delete script';
+      button.setAttribute('aria-label', `Delete script ${item.scripts[index].name}`);
+      button.addEventListener('click', () => deleteRecipeNode('script', {...item.scripts[index], diagnostic: item.id}, null, false, button));
+      row.append(button);
+    });
     mountScriptCreator(item);
     return;
   }
