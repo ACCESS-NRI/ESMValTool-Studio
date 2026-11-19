@@ -167,10 +167,10 @@ class MonitorInput(BaseModel):
 def monitor_user(body: MonitorInput) -> str:
     try:
         user = recipe_monitor.identity(body.username)
-    except (ValueError, RuntimeError, TimeoutError) as exc:
-        raise HTTPException(403, f"Could not verify the Gadi account for Recipe monitor: {exc}") from exc
+    except (ValueError, RuntimeError, OSError, KeyError) as exc:
+        raise HTTPException(403, f"Could not verify ARE run access: {exc}") from exc
     if user not in recipe_monitor.allowed_users():
-        raise HTTPException(403, f"Recipe monitor is not enabled for NCI account {user}")
+        raise HTTPException(403, f"Runs and Recipe monitor are not enabled for ARE account {user}")
     return user
 
 
@@ -228,11 +228,17 @@ def remote_config(body: ConfigRemote):
 
 @app.get("/api/health")
 def health():
+    try:
+        run_access = {"allowed": True, "user": monitor_user(MonitorInput())}
+    except HTTPException as exc:
+        run_access = {"allowed": False, "detail": exc.detail}
     return {
         "ok": True,
         "library_available": recipes.available_recipe_root() is not None,
         "local_esmvaltool": shutil.which("esmvaltool") is not None,
         "execution_mode": remote.execution_mode(),
+        "are_session": recipe_monitor.is_are(),
+        "run_access": run_access,
         "runtime_setup": os.environ.get("ESMVAL_GUI_RUNTIME_SETUP", "") if remote.execution_mode() == "local" else "",
         "runtime_command": os.environ.get("ESMVAL_GUI_RUNTIME_COMMAND", "esmvaltool") if remote.execution_mode() == "local" else "esmvaltool",
     }
@@ -581,6 +587,7 @@ def submit(body: RunInput):
 
 @app.get("/api/jobs")
 def jobs():
+    monitor_user(MonitorInput())
     if not STATE.is_dir():
         return {"jobs": []}
     records = []
@@ -595,6 +602,7 @@ def jobs():
 
 @app.get("/api/jobs/{run_id}")
 def job(run_id: str):
+    monitor_user(MonitorInput())
     try:
         return remote.refresh_status(STATE, run_id)
     except (FileNotFoundError, ValueError) as exc:
@@ -603,6 +611,7 @@ def job(run_id: str):
 
 @app.get("/api/jobs/{run_id}/logs")
 def job_logs(run_id: str):
+    monitor_user(MonitorInput())
     try:
         return remote.logs(remote.read_job(STATE, run_id))
     except (FileNotFoundError, ValueError) as exc:
@@ -611,6 +620,7 @@ def job_logs(run_id: str):
 
 @app.post("/api/jobs/{run_id}/cancel")
 def cancel_job(run_id: str):
+    monitor_user(MonitorInput())
     try:
         return remote.cancel(STATE, remote.read_job(STATE, run_id))
     except FileNotFoundError as exc:
@@ -621,6 +631,7 @@ def cancel_job(run_id: str):
 
 @app.get("/api/jobs/{run_id}/outputs")
 def job_outputs(run_id: str):
+    monitor_user(MonitorInput())
     try:
         return outputs.list_files(remote.read_job(STATE, run_id))
     except (FileNotFoundError, ValueError) as exc:
@@ -630,6 +641,7 @@ def job_outputs(run_id: str):
 @app.get("/api/jobs/{run_id}/output")
 def job_output(run_id: str, path: str = Query(min_length=1, max_length=2048), download: bool = False,
                page: int = 0):
+    monitor_user(MonitorInput())
     try:
         target = outputs.resolve_file(remote.read_job(STATE, run_id), path)
         headers = {"Cache-Control": "no-store", "X-Content-Type-Options": "nosniff",
@@ -662,6 +674,7 @@ def job_output(run_id: str, path: str = Query(min_length=1, max_length=2048), do
 
 @app.get("/api/jobs/{run_id}/report")
 def job_report(run_id: str, path: str = Query(min_length=1, max_length=2048)):
+    monitor_user(MonitorInput())
     try:
         target = outputs.resolve_file(remote.read_job(STATE, run_id), path)
         if outputs.kind_for(target) != "html":
@@ -675,6 +688,7 @@ def job_report(run_id: str, path: str = Query(min_length=1, max_length=2048)):
 
 @app.get("/reports/{run_id}/{ticket}/{path:path}")
 def report_file(run_id: str, ticket: str, path: str):
+    monitor_user(MonitorInput())
     # Iframes cannot send Studio's API header. This capability grants only GET
     # access to this run, preserving relative URLs without exposing the API token.
     if not outputs.valid_report_ticket(run_id, ticket):

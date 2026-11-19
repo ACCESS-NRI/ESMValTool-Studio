@@ -208,3 +208,19 @@ and output handling; it does not validate a scientific recipe or climate dataset
 
 The approach follows [Scott Wales's Marimo example](https://forum.access-hive.org.au/t/glitch-in-jupyter-lab-on-are-xp65/5337/20)
 and [NCI's direct Cylc launch through Jupyter](https://opus.nci.org.au/spaces/DAE/pages/252674295/Run+Cylc8+Suites).
+
+### Access to run history and Recipe monitor
+
+Runs, Results and Recipe monitor require the authenticated ARE launcher and an
+allowlisted server account. The default account is `rb5533`. Set
+`ESMVAL_GUI_RECIPE_MONITOR_USERS` before launch to change the comma-separated
+allowlist; an empty value disables these views and their APIs. Restart Studio
+after changing it. The backend checks the process's effective UID, ignoring
+browser usernames and environment username strings.
+
+The launcher sets `ESMVAL_GUI_DEPLOYMENT=are` alongside direct PBS execution and
+proxy XSRF protection. These are server deployment settings, not browser claims.
+Do not set the ARE deployment marker in standalone launch scripts. The normal
+standalone launcher clears an inherited marker; SSH access to Gadi does not grant
+access to these features. The recipe editor and single-recipe submission remain
+available to other users.

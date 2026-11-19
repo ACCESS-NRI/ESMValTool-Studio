@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>ESMValTool Studio</title>
   <script>try { if (localStorage.getItem('esmval-studio-theme') === 'dark') document.documentElement.dataset.theme = 'dark'; } catch (_) {}</script>
-  <link rel="stylesheet" href="style.css?v=studio-results-1">
+  <link rel="stylesheet" href="style.css?v=studio-are-access-1">
 </head>
 <body>
   <div class="shell">
@@ -22,14 +22,13 @@
     </header>
     <nav class="studio-nav" aria-label="Studio navigation">
       <button class="studio-nav-item active" data-view="editor" aria-current="page" type="button">Recipes</button>
-      <button class="studio-nav-item" data-view="runs" type="button">Runs</button>
-      <button class="studio-nav-item" data-view="results" type="button">Results</button>
+      <button class="studio-nav-item" data-view="runs" type="button" hidden>Runs</button>
+      <button class="studio-nav-item" data-view="results" type="button" hidden>Results</button>
       <button id="monitorNavButton" class="studio-nav-item" data-view="monitor" type="button" hidden>Recipe monitor</button>
       <button id="studioSettingsButton" class="studio-nav-item studio-settings-button" type="button" aria-haspopup="dialog">Settings <span id="studioProjectLabel"></span></button>
     </nav>
     <form id="monitorAccessPanel" class="monitor-access" hidden>
       <p id="monitorAccessStatus" role="status"></p>
-      <label id="monitorUsernameLabel">NCI username <input id="monitorUsername" autocomplete="username" placeholder="From SSH config if blank"></label>
       <button id="retryMonitorAccess" class="button subtle small-button" type="submit">Check monitor access</button>
     </form>
     <div id="recipeWorkspace" class="workspace">
@@ -235,6 +234,6 @@
     </div>
   </div>
   <input id="fileInput" type="file" accept=".yml,.yaml,text/yaml" hidden>
-  <script src="app.js?v=studio-results-1" defer></script>
+  <script src="app.js?v=studio-are-access-1" defer></script>
 </body>
 </html>

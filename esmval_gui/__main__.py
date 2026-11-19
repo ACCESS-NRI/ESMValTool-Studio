@@ -15,6 +15,9 @@ def main():
     parser.add_argument("--port", type=int, default=8765)
     parser.add_argument("--no-browser", action="store_true")
     args = parser.parse_args()
+    # The standalone launcher must not inherit ARE-only capabilities from a
+    # parent shell. The ARE proxy starts uvicorn through its own launcher.
+    os.environ.pop("ESMVAL_GUI_DEPLOYMENT", None)
     try:
         if not ipaddress.ip_address(args.host).is_loopback:
             parser.error("Bind to a loopback address and use an SSH tunnel for remote access")
