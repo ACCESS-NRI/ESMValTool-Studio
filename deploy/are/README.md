@@ -76,9 +76,14 @@ in Studio. Ending the ARE session does not cancel those diagnostic jobs.
 5. In **Runs**, select the job to see its status and live logs. Active selected
    runs refresh every 30 seconds while the page is visible. Use **Cancel job**
    when needed; completed jobs remain in the run history.
-6. Under **Outputs**, filter or search the file list. Images and PDF pages render
-   inside Studio; YAML, provenance and other text files show as text. **Download**
-   returns the original file, including NetCDF data or a complete PDF.
+6. Open **Results**, or select **View results** on the run, to explore ESMValTool's
+   generated HTML report in a full-width workspace. Its filters and relative
+   links remain available; **Open in new tab** opens the report separately.
+   Switch to **Files** to filter or search individual outputs. Images and PDF
+   pages render inside Studio; YAML, provenance and other text files show as
+   text. **Download file** returns the original file, including NetCDF data or
+   a complete PDF. Report links expire after one hour; **Refresh results** or
+   **Report home** renews them.
 
 Each run contains `recipe.yml`, `job.pbs`, live `stdout.txt`/`stderr.txt`, PBS spool
 logs, an exit-code marker and `output/`. The output directory is passed explicitly

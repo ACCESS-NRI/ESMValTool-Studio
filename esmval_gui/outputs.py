@@ -3,10 +3,13 @@
 from __future__ import annotations
 
 import os
+import hashlib
+import hmac
+import time
 from pathlib import Path, PurePosixPath
 import stat
 
-from . import remote
+from . import auth, remote
 
 
 MAX_FILES = 1000
@@ -34,6 +37,8 @@ def kind_for(path: Path) -> str:
         return "image"
     if suffix == ".pdf":
         return "pdf"
+    if suffix in {".html", ".htm"}:
+        return "html"
     if suffix in TEXT_SUFFIXES:
         return "text"
     return "data"
@@ -76,10 +81,30 @@ def list_files(record: dict) -> dict:
         except OSError as exc:
             result["detail"] = f"Some outputs could not be read: {exc.strerror}. Check ARE Storage mounts and permissions."
     result["files"].sort(key=lambda item: (item["kind"] not in ("image", "pdf"), item["path"]))
+    result["reports"] = sorted(
+        [item["path"] for item in result["files"] if item["kind"] == "html"],
+        key=lambda path: (Path(path).name.lower() != "index.html", len(Path(path).parts), path),
+    )
     return result
 
 
-def resolve_file(record: dict, relative: str) -> Path:
+def report_ticket(run_id: str, expires: int | None = None) -> str:
+    """One-hour read-only capability, restricted to a single run's outputs."""
+    if expires is None:
+        expires = int(time.time()) + 3600
+    signature = hmac.new(auth.ACCESS_TOKEN.encode(), f"report:{run_id}:{expires}".encode(), hashlib.sha256).hexdigest()
+    return f"{expires}.{signature}"
+
+
+def valid_report_ticket(run_id: str, ticket: str) -> bool:
+    try:
+        expires = int(ticket.split(".", 1)[0])
+        return expires > time.time() and hmac.compare_digest(ticket, report_ticket(run_id, expires))
+    except (ValueError, OverflowError, TypeError):
+        return False
+
+
+def resolve_file(record: dict, relative: str, *, allow_directory: bool = False) -> Path:
     root = root_for(record)
     parts = PurePosixPath(relative).parts
     if not parts or relative.startswith("/") or "\\" in relative or "\0" in relative or any(part in (".", "..") for part in parts):
@@ -89,6 +114,7 @@ def resolve_file(record: dict, relative: str) -> Path:
         path = path / part
         if path.is_symlink():
             raise ValueError("Symbolic links cannot be opened as run outputs")
-    if not path.resolve().is_relative_to(root) or not stat.S_ISREG(path.stat().st_mode):
+    mode = path.stat().st_mode
+    if not path.resolve().is_relative_to(root) or not (stat.S_ISREG(mode) or (allow_directory and stat.S_ISDIR(mode))):
         raise ValueError("Choose a regular output file")
     return path

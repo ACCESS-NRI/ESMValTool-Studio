@@ -24,7 +24,8 @@ class AuthTests(unittest.TestCase):
     def test_api_requires_token(self):
         for path in ("/api/health", "/api/config/remote", "/api/scripts", "/api/scripts/source",
                      "/api/remote/preflight", "/api/remote/submit", "/api/docs",
-                     "/api/recipe-monitor/access", "/api/recipe-monitor", "/api/recipe-monitor/analysis3"):
+                     "/api/recipe-monitor/access", "/api/recipe-monitor", "/api/recipe-monitor/analysis3",
+                     "/api/jobs/aabbccddeeff/report"):
             with self.subTest(path=path):
                 self.assertEqual(asyncio.run(require_api_token(request(path), next_handler)).status_code, 401)
                 self.assertEqual(asyncio.run(require_api_token(request(path, "incorrect"), next_handler)).status_code, 401)

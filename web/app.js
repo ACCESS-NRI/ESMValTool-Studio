@@ -19,7 +19,7 @@ const realmLabel = (realm) => realmNames[realm] || realm;
 const observationProjects = new Set(['obs', 'obs6', 'obs4mips', 'ana4mips']);
 const libraryFilters = { projects: new Set(), datasets: new Set(), variables: new Set() };
 const state = { yaml: '', summary: null, name: '', libraryInfo: null, dirty: false, selected: null, jobs: [], selectedJob: null, parseTimer: null, draftTimer: null, figureUrl: null, figureSource: null, figureRequest: 0, catalogue: null, builderProfile: '', builderBrick: '', builderEditing: false, isNewRecipe: false, recipePreviewTimer: null, recipePreviewVersion: 0, configFiles: [], configSummary: null, configVersion: 0 };
-Object.assign(state, {executionMode: 'ssh', outputFiles: [], outputPath: null, outputUrl: null, outputRequest: 0, jobRequest: 0});
+Object.assign(state, {executionMode: 'ssh', outputFiles: [], outputPath: null, outputUrl: null, outputRequest: 0, jobRequest: 0, reportRequest: 0, reportPath: null});
 let accessToken = sessionStorage.getItem(tokenKey) || '';
 const draftKey = storageKey('esmval-gui-recipe-draft');
 function setTheme(theme) {
@@ -158,8 +158,9 @@ function setView(name) {
     if (active) button.setAttribute('aria-current', 'page');
     else button.removeAttribute('aria-current');
   });
-  for (const view of ['runs', 'monitor']) $(view + 'Tab').classList.toggle('active', view === name);
+  for (const view of ['runs', 'monitor', 'results']) $(view + 'Tab').classList.toggle('active', view === name);
   if (name === 'runs') refreshJobs();
+  if (name === 'results') refreshJobs();
   if (name === 'monitor') loadMonitor();
   if (editing) scheduleConnections();
 }
@@ -1475,33 +1476,105 @@ async function submitJob() {
 async function refreshJobs() {
   try {
     const result = await api('/jobs'); state.jobs = result.jobs;
+    $('resultsRun').innerHTML = '<option value="">Select a run</option>' + result.jobs.map((job) => `<option value="${escapeHtml(job.id)}">${escapeHtml(job.title || job.job_id)} · ${escapeHtml(job.job_id)} · ${escapeHtml(new Date(job.submitted_at).toLocaleString())}</option>`).join('');
+    $('resultsRun').value = state.selectedJob || '';
     $('jobsList').innerHTML = result.jobs.map((job) => `<button class="job-entry" data-id="${escapeHtml(job.id)}"><span class="job-icon">↗</span><span><strong>${escapeHtml(job.title || job.job_id)}</strong><small>${escapeHtml(job.job_id)} · ${new Date(job.submitted_at).toLocaleString()}${job.cancelled ? ' · Cancelled' : ''}</small></span><span class="job-queue">${escapeHtml(job.queue)}</span></button>`).join('') || '<p class="empty">No jobs submitted yet.</p>';
     $('jobsList').querySelectorAll('.job-entry').forEach((button) => button.addEventListener('click', () => selectJob(button.dataset.id)));
-    if (state.selectedJob) selectJob(state.selectedJob);
+    if (state.selectedJob) await selectJob(state.selectedJob);
+    else if (state.view === 'results' && result.jobs.length) await selectJob(result.jobs[0].id);
   } catch (err) { toast(err.message, true); }
 }
 async function selectJob(id) {
   const changed = state.selectedJob !== id;
   const request = ++state.jobRequest;
-  if (changed) { clearOutputPreview(); state.outputFiles = []; renderOutputFiles(); }
+  if (changed) { clearOutputPreview(); clearReport(); state.outputFiles = []; renderOutputFiles(); setResultsMode('report'); }
   state.selectedJob = id; $('jobDetails').hidden = false;
+  $('resultsRun').value = id;
+  $('resultsLogs').disabled = false;
   const record = state.jobs.find((job) => job.id === id); $('selectedJobTitle').textContent = 'Job ' + (record?.job_id || id);
   try {
-    const [status, logs, outputs] = await Promise.all([api('/jobs/' + id), api('/jobs/' + id + '/logs'), api('/jobs/' + id + '/outputs')]);
+    const [statusResult, logsResult, outputsResult] = await Promise.allSettled([api('/jobs/' + id), api('/jobs/' + id + '/logs'), api('/jobs/' + id + '/outputs')]);
     if (request !== state.jobRequest) return;
-    state.jobState = status.state;
-    $('selectedJobState').textContent = `${status.state}${status.exit_status !== null && status.exit_status !== undefined ? ' · exit ' + status.exit_status : ''} · ${status.remote_dir}${status.detail ? ' · ' + status.detail : ''}`;
-    $('cancelJob').hidden = !['queued', 'running', 'held'].includes(status.state);
-    $('stdoutLog').textContent = logs.stdout || 'No output yet.'; $('stderrLog').textContent = logs.stderr || 'No errors.';
+    const status = statusResult.value;
+    state.jobState = status?.state;
+    $('selectedJobState').textContent = status ? `${status.state}${status.exit_status !== null && status.exit_status !== undefined ? ' · exit ' + status.exit_status : ''} · ${status.remote_dir}${status.detail ? ' · ' + status.detail : ''}` : statusResult.reason.message;
+    $('cancelJob').hidden = !['queued', 'running', 'held'].includes(status?.state);
+    const logs = logsResult.value;
+    $('stdoutLog').textContent = logs ? (logs.stdout || 'No output yet.') : logsResult.reason.message;
+    $('stderrLog').textContent = logs?.stderr || 'No errors.';
+    if (outputsResult.status === 'rejected') {
+      clearReport(); $('reportStatus').textContent = outputsResult.reason.message;
+      $('outputsSummary').textContent = outputsResult.reason.message;
+      return;
+    }
+    const outputs = outputsResult.value;
     state.outputFiles = outputs.files;
+    updateReport(outputs);
     $('outputsSummary').textContent = outputs.available ? `${outputs.files.length} files · ${outputs.root}${outputs.truncated ? ' · listing limit reached; narrow the run output collection' : ''}` : outputs.detail;
     $('outputStatus').textContent = outputs.detail || (outputs.files.length ? '' : 'No outputs yet. Refresh after the job starts writing results.');
     renderOutputFiles();
     if (!state.outputPath && outputs.files.length) {
-      const first = outputs.files.find((file) => ['image', 'pdf'].includes(file.kind)) || outputs.files[0];
-      previewOutput(first.path);
+      const first = outputs.files.find((file) => ['image', 'pdf'].includes(file.kind)) || outputs.files.find((file) => file.kind !== 'html');
+      if (first) previewOutput(first.path);
     }
   } catch (err) { if (request === state.jobRequest) $('selectedJobState').textContent = err.message; }
+}
+
+function setResultsMode(mode) {
+  $('resultReport').hidden = mode !== 'report';
+  $('resultFiles').hidden = mode !== 'files';
+  $('reportMode').setAttribute('aria-pressed', String(mode === 'report'));
+  $('filesMode').setAttribute('aria-pressed', String(mode === 'files'));
+}
+function clearReport() {
+  state.reportRequest++;
+  state.reportPath = null;
+  $('reportFrame').hidden = true;
+  $('reportFrame').removeAttribute('src');
+  $('reportToolbar').hidden = true;
+  $('openReport').removeAttribute('href');
+  $('reportStatus').hidden = false;
+  $('reportStatus').textContent = 'Loading report…';
+}
+function updateReport(outputs) {
+  const reports = outputs.reports || [];
+  const previous = state.reportPath;
+  $('reportSelect').innerHTML = reports.map((path) => `<option value="${escapeHtml(path)}">${escapeHtml(path)}</option>`).join('');
+  if (!reports.length) {
+    clearReport();
+    $('reportStatus').textContent = !outputs.available ? outputs.detail : 'No HTML report yet. ESMValTool writes index.html when it finishes a run. Use Files to inspect available plots and data, or refresh after the run completes.';
+    return;
+  }
+  $('reportToolbar').hidden = false;
+  $('reportSelect').value = reports.includes(previous) ? previous : reports[0];
+  if (state.view === 'results' && (!previous || !reports.includes(previous))) loadReport($('reportSelect').value);
+}
+async function loadReport(path) {
+  if (!path || !state.selectedJob) return;
+  const request = ++state.reportRequest;
+  const job = state.selectedJob;
+  state.reportPath = path;
+  $('reportStatus').hidden = false;
+  $('reportStatus').textContent = 'Loading report…';
+  $('reportFrame').hidden = true;
+  $('openReport').removeAttribute('href');
+  try {
+    const result = await api(`/jobs/${job}/report?path=${encodeURIComponent(path)}`);
+    if (request !== state.reportRequest || job !== state.selectedJob) return;
+    const url = appUrl(result.url);
+    // Start a fresh browsing context, including when returning from a linked
+    // SVG/PDF document. This also resets the report's scroll position.
+    const frame = $('reportFrame').cloneNode(false);
+    frame.onload = () => { if (request === state.reportRequest) $('reportStatus').hidden = true; };
+    frame.src = url;
+    frame.hidden = false;
+    $('reportFrame').replaceWith(frame);
+    $('openReport').href = url;
+  } catch (error) {
+    if (request !== state.reportRequest) return;
+    state.reportPath = null;
+    $('reportStatus').textContent = error.message;
+  }
 }
 
 function fileSize(bytes) {
@@ -1545,6 +1618,9 @@ async function previewOutput(path, page = 0) {
   const request = state.outputRequest;
   $('downloadOutput').disabled = false;
   $('outputStatus').textContent = `${file.path} · ${fileSize(file.size)}`;
+  if (file.kind === 'html') {
+    setResultsMode('report'); $('reportSelect').value = path; loadReport(path); return;
+  }
   const container = $('outputPreview');
   if (file.kind === 'data') {
     container.innerHTML = '<p class="empty">Download this file for analysis. NetCDF and other data files are preserved in the run output directory.</p>';
@@ -1768,6 +1844,27 @@ $('runModal').addEventListener('change', (event) => { if (event.target.matches('
 $('probeButton').addEventListener('click', probeRemote); $('previewButton').addEventListener('click', previewScript); $('submitButton').addEventListener('click', submitJob);
 $('refreshJobs').addEventListener('click', refreshJobs); $('refreshLog').addEventListener('click', () => { if (state.selectedJob) selectJob(state.selectedJob); });
 $('outputSearch').addEventListener('input', renderOutputFiles);
+$('viewResults').addEventListener('click', () => setView('results'));
+$('resultsLogs').addEventListener('click', () => setView('runs'));
+$('resultsRun').addEventListener('change', () => {
+  if ($('resultsRun').value) selectJob($('resultsRun').value);
+  else {
+    state.selectedJob = null; state.jobRequest++;
+    state.outputFiles = []; clearOutputPreview(); renderOutputFiles(); clearReport();
+    $('resultsLogs').disabled = true;
+    $('outputsSummary').textContent = 'Select a run to view its results.';
+    $('outputStatus').textContent = '';
+    $('reportStatus').textContent = 'Select a run to view its report.';
+  }
+});
+$('refreshResults').addEventListener('click', async () => {
+  clearReport(); await refreshJobs();
+  if (!state.selectedJob) $('reportStatus').textContent = 'No runs yet. Submit a recipe to see its results here.';
+});
+$('reportMode').addEventListener('click', () => setResultsMode('report'));
+$('filesMode').addEventListener('click', () => setResultsMode('files'));
+$('reportSelect').addEventListener('change', () => loadReport($('reportSelect').value));
+$('reportHome').addEventListener('click', () => loadReport($('reportSelect').value));
 $('outputKind').addEventListener('change', renderOutputFiles);
 $('outputFiles').addEventListener('click', (event) => { const button = event.target.closest('[data-path]'); if (button) previewOutput(button.dataset.path); });
 $('downloadOutput').addEventListener('click', downloadOutput);
