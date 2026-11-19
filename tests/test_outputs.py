@@ -3,7 +3,9 @@ import importlib.util
 import os
 from pathlib import Path
 import tempfile
+import time
 import unittest
+from urllib.parse import urljoin
 from unittest.mock import patch
 
 from fastapi import HTTPException
@@ -69,6 +71,51 @@ class OutputTests(unittest.TestCase):
             response = app.job_output(self.record["id"], "report.html", download=True)
             self.assertIn("attachment", response.headers["content-disposition"])
             self.assertEqual(response.media_type, "application/octet-stream")
+
+    def test_report_discovery_prefers_native_index(self):
+        (self.output / "recipe/plots").mkdir(parents=True)
+        for path in ("recipe/index.html", "recipe/plots/extra.html", "report.htm"):
+            (self.output / path).write_text("<h1>Report</h1>")
+        listing = outputs.list_files(self.record)
+        self.assertEqual(listing["reports"], ["recipe/index.html", "report.htm", "recipe/plots/extra.html"])
+        self.assertTrue(all(file["kind"] == "html" for file in listing["files"]))
+
+    def test_report_links_preserve_assets_and_sandbox(self):
+        (self.output / "recipe/plots").mkdir(parents=True)
+        (self.output / "recipe/index.html").write_text('<img src="plots/a plot.svg">')
+        (self.output / "recipe/plots/a plot.svg").write_text('<svg xmlns="http://www.w3.org/2000/svg"/>')
+        with patch.object(app, "STATE", self.root):
+            url = app.job_report(self.record["id"], "recipe/index.html")["url"]
+            _, run, ticket, path = url.split("/", 3)
+            report = app.report_file(run, ticket, path)
+            self.assertEqual(report.media_type, "text/html")
+            self.assertIn("sandbox allow-scripts allow-downloads;", report.headers["Content-Security-Policy"])
+            self.assertNotIn("allow-same-origin", report.headers["Content-Security-Policy"])
+            self.assertEqual(report.headers["Referrer-Policy"], "no-referrer")
+            self.assertEqual(app.report_file(run, ticket, "recipe/plots/a plot.svg").media_type, "image/svg+xml")
+            for directory in ("recipe/plots", "recipe/plots/"):
+                listing = app.report_file(run, ticket, directory).body.decode()
+                href = listing.split('href="')[1].split('"')[0]
+                self.assertEqual(urljoin(f"https://studio/reports/{run}/{ticket}/{directory}", href),
+                                 f"https://studio/reports/{run}/{ticket}/recipe/plots/a%20plot.svg")
+
+    def test_report_capability_rejects_expiry_wrong_run_and_escape(self):
+        ticket = outputs.report_ticket(self.record["id"])
+        self.assertTrue(outputs.valid_report_ticket(self.record["id"], ticket))
+        for bad in ("invalid", ticket + "a", ticket + "é", outputs.report_ticket(self.record["id"], int(time.time()) - 1)):
+            with self.assertRaises(HTTPException) as error:
+                app.report_file(self.record["id"], bad, "index.html")
+            self.assertEqual(error.exception.status_code, 401)
+        self.assertFalse(outputs.valid_report_ticket("another-run", ticket))
+        (self.root / "secret.html").write_text("secret")
+        (self.output / "escape.html").symlink_to(self.root / "secret.html")
+        with patch.object(app, "STATE", self.root):
+            for path in ("../secret.html", "escape.html"):
+                with self.assertRaises(HTTPException) as error:
+                    app.report_file(self.record["id"], ticket, path)
+                self.assertEqual(error.exception.status_code, 400)
+            with self.assertRaises(HTTPException):
+                app.job_report(self.record["id"], "escape.html")
 
     @unittest.skipUnless(importlib.util.find_spec("pypdfium2") and importlib.util.find_spec("PIL"), "Install ARE PDF dependencies")
     def test_pdf_pages_render_as_images_and_download_as_original(self):

@@ -42,9 +42,10 @@ environment**, select a working directory and configuration directory, then
 **Review & check** before queuing a job. Each diagnostic is a separate PBS job
 with its own requested resources and charging project.
 
-Open **Runs**, select a job, and use **Outputs** to view plots (including paged
-PDFs), inspect text/provenance, and download results. NetCDF files are available
-for download. Include the run's filesystem in ARE **Storage** to read results.
+Open **Results** in the main Studio navigation and select a run to explore its
+ESMValTool HTML report. Use **Files** to view plots (including paged PDFs), inspect
+text/provenance, and download results. NetCDF files are available for download.
+Include the run's filesystem in ARE **Storage** to read results.
 
 This pilot uses the existing JupyterLab tile without a VDI session. It does not
 add a separate Studio tile. See the
@@ -163,7 +164,7 @@ This is a view of the **selected files**, not a claim about every effective runt
 3. Set walltime, CPUs, memory, jobfs and storage. Include every `/g/data` and `/scratch` project used by the executable, recipe data and output in **Storage**. Modern ESMValCore uses **Config directory**; older installations may require **Config file**. The connection check detects the runtime's format.
 4. Select **Review & check**. The GUI previews the PBS script and checks PBS, the executable, selected configuration, project data roots, installed diagnostic scripts and named preprocessor steps without uploading a recipe or submitting a job. Any environment setup command you entered also runs during the check. Review warnings about anything that could not be checked, then select **Queue job**. Monitor status and output in **Runs**, where a queued or running job can also be cancelled.
 
-The GUI runs `esmvaltool run` inside a PBS job. It writes a copy of the current YAML to a unique directory under your working directory and directs results into that run's `output/` directory. Live logs and an exit-code marker remain with the run. Job records live in `.esmval-gui/` for local installations or `~/.local/state/esmvaltool-studio-are` on ARE. Output previews are available for jobs submitted directly from ARE; older SSH jobs retain their original transport.
+The GUI runs `esmvaltool run` inside a PBS job. It writes a copy of the current YAML to a unique directory under your working directory and directs results into that run's `output/` directory. Live logs and an exit-code marker remain with the run. Job records live in `.esmval-gui/` for local installations or `~/.local/state/esmvaltool-studio-are` on ARE. Output previews are available for jobs submitted directly from ARE; older SSH jobs retain their original transport. Open **Results** from the main navigation or **View results** on a run to explore ESMValTool’s generated `index.html` report in a full-width workspace. Choose **Files** for individual plot previews, provenance and downloads. Reports retain their relative links and interactive controls, and can also open in a separate browser tab. Report links expire after one hour; **Refresh results** or **Report home** renews them. The report’s external styles and scripts require access to the CDNs used by ESMValCore.
 
 ## Recipe monitor pilot
 

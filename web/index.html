@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>ESMValTool Studio</title>
   <script>try { if (localStorage.getItem('esmval-studio-theme') === 'dark') document.documentElement.dataset.theme = 'dark'; } catch (_) {}</script>
-  <link rel="stylesheet" href="style.css?v=studio-recipe-monitor-1">
+  <link rel="stylesheet" href="style.css?v=studio-results-1">
 </head>
 <body>
   <div class="shell">
@@ -23,6 +23,7 @@
     <nav class="studio-nav" aria-label="Studio navigation">
       <button class="studio-nav-item active" data-view="editor" aria-current="page" type="button">Recipes</button>
       <button class="studio-nav-item" data-view="runs" type="button">Runs</button>
+      <button class="studio-nav-item" data-view="results" type="button">Results</button>
       <button id="monitorNavButton" class="studio-nav-item" data-view="monitor" type="button" hidden>Recipe monitor</button>
       <button id="studioSettingsButton" class="studio-nav-item studio-settings-button" type="button" aria-haspopup="dialog">Settings <span id="studioProjectLabel"></span></button>
     </nav>
@@ -90,12 +91,24 @@
     </div>
     <main id="studioGlobalView" class="studio-global panel" hidden>
         <section id="runsTab" class="tab-content"><div class="runs-header"><div><div class="eyebrow">STUDIO / ALL RECIPES</div><h2>Runs</h2><p class="hint">Recent jobs across all recipes submitted from this Studio account.</p></div><button id="refreshJobs" class="button subtle">Refresh</button></div><div id="jobsList" class="jobs-list"><p class="empty">No jobs submitted yet.</p></div><div id="jobDetails" class="job-details" hidden><div class="job-details-head"><strong id="selectedJobTitle"></strong><div><button id="refreshLog" class="button subtle">Refresh run</button> <button id="cancelJob" class="button ghost" hidden>Cancel job</button></div></div><div id="selectedJobState" class="job-state"></div><div class="log-grid"><div><label>Output</label><pre id="stdoutLog"></pre></div><div><label>Errors</label><pre id="stderrLog"></pre></div></div>
-          <section class="run-outputs" aria-labelledby="outputsTitle">
+          <button id="viewResults" class="button primary" type="button">View results →</button>
+        </div></section>
+        <section id="resultsTab" class="tab-content results-tab">
+          <div class="runs-header"><div><div class="eyebrow">STUDIO / OUTPUTS</div><h2>Results</h2><p class="hint">Explore the ESMValTool report, figures and data from each run.</p></div><button id="refreshResults" class="button subtle" type="button">Refresh results</button></div>
+          <div class="results-toolbar"><label>Run<select id="resultsRun"><option value="">Select a run</option></select></label><button id="resultsLogs" class="button ghost" type="button" disabled>View run logs</button></div>
+          <div class="results-modes" role="group" aria-label="Results view"><button id="reportMode" class="button subtle" type="button" aria-pressed="true">Report</button><button id="filesMode" class="button subtle" type="button" aria-pressed="false">Files</button></div>
+          <section id="resultReport" class="result-report" aria-label="ESMValTool report">
+            <div id="reportToolbar" class="report-toolbar" hidden><label>HTML report<select id="reportSelect"></select></label><button id="reportHome" class="button subtle small-button" type="button">Report home</button><a id="openReport" class="button subtle small-button" target="_blank" rel="noopener noreferrer">Open in new tab ↗</a></div>
+            <p id="reportStatus" class="empty" role="status">Select a run to view its report.</p>
+            <iframe id="reportFrame" title="ESMValTool output report" sandbox="allow-scripts allow-downloads" referrerpolicy="no-referrer" hidden></iframe>
+          </section>
+          <section id="resultFiles" class="result-files" aria-labelledby="outputsTitle" hidden>
             <div class="outputs-heading"><div><h3 id="outputsTitle">Outputs</h3><p id="outputsSummary">Select a run to view its results.</p></div><button id="downloadOutput" class="button subtle" disabled>Download file</button></div>
-            <div class="output-filters"><label>Find a file<input id="outputSearch" type="search" placeholder="Filter by file name or diagnostic"></label><label>File type<select id="outputKind"><option value="all">All files</option><option value="plots">Plots</option><option value="text">Text and provenance</option><option value="data">Data files</option></select></label></div>
+            <div class="output-filters"><label>Find a file<input id="outputSearch" type="search" placeholder="Filter by file name or diagnostic"></label><label>File type<select id="outputKind"><option value="all">All files</option><option value="plots">Plots</option><option value="text">Text and provenance</option><option value="html">HTML reports</option><option value="data">Data files</option></select></label></div>
             <p id="outputStatus" class="output-status" role="status"></p>
             <div class="outputs-layout"><div id="outputFiles" class="output-files" aria-label="Run output files"></div><div id="outputPreview" class="output-preview"><p class="empty">Plots and text previews appear here.</p></div></div>
-          </section></div></section>
+          </section>
+        </section>
         <section id="monitorTab" class="tab-content">
           <div class="runs-header"><div><div class="eyebrow">STUDIO / ALL RECIPES</div><h2>Recipe monitor</h2></div><button id="refreshMonitor" class="button subtle">Refresh visible runs</button></div>
           <p class="hint">Latest Studio run per library recipe. Run opens the Gadi resource and preflight review. Usage is reported by PBS; — means unavailable.</p>
@@ -222,6 +235,6 @@
     </div>
   </div>
   <input id="fileInput" type="file" accept=".yml,.yaml,text/yaml" hidden>
-  <script src="app.js?v=studio-recipe-monitor-1" defer></script>
+  <script src="app.js?v=studio-results-1" defer></script>
 </body>
 </html>

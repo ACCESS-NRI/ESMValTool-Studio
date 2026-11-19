@@ -3,7 +3,9 @@ from __future__ import annotations
 import os
 import secrets
 import shutil
+from html import escape
 from pathlib import Path
+from urllib.parse import quote
 
 from fastapi import FastAPI, HTTPException, Query, Request
 from fastapi.responses import FileResponse, JSONResponse, Response
@@ -654,6 +656,66 @@ def job_output(run_id: str, path: str = Query(min_length=1, max_length=2048), do
         return FileResponse(target, media_type=outputs.IMAGE_TYPES[target.suffix.lower()], headers=headers)
     except FileNotFoundError as exc:
         raise HTTPException(404, "Output file or job not found") from exc
+    except (ValueError, OSError) as exc:
+        raise HTTPException(400, str(exc)) from exc
+
+
+@app.get("/api/jobs/{run_id}/report")
+def job_report(run_id: str, path: str = Query(min_length=1, max_length=2048)):
+    try:
+        target = outputs.resolve_file(remote.read_job(STATE, run_id), path)
+        if outputs.kind_for(target) != "html":
+            raise ValueError("Choose an HTML report")
+        return {"url": f"reports/{run_id}/{outputs.report_ticket(run_id)}/{quote(path, safe='/')}"}
+    except FileNotFoundError as exc:
+        raise HTTPException(404, "Report or job not found") from exc
+    except (ValueError, OSError) as exc:
+        raise HTTPException(400, str(exc)) from exc
+
+
+@app.get("/reports/{run_id}/{ticket}/{path:path}")
+def report_file(run_id: str, ticket: str, path: str):
+    # Iframes cannot send Studio's API header. This capability grants only GET
+    # access to this run, preserving relative URLs without exposing the API token.
+    if not outputs.valid_report_ticket(run_id, ticket):
+        raise HTTPException(401, "Report link expired. Refresh Results in Studio.")
+    headers = {"Cache-Control": "no-store", "X-Content-Type-Options": "nosniff",
+               "Referrer-Policy": "no-referrer",
+               "Content-Security-Policy": (
+                   "sandbox allow-scripts allow-downloads; default-src 'none'; "
+                   "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://ajax.googleapis.com; "
+                   "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; "
+                   "img-src 'self' data: https://raw.githubusercontent.com; "
+                   "font-src 'self' data:; base-uri 'none'; form-action 'none'; frame-ancestors 'self'"
+               )}
+    try:
+        target = outputs.resolve_file(remote.read_job(STATE, run_id), path, allow_directory=True)
+        if target.is_dir():
+            # Preserve ESMValCore's figures/data directory links without exposing
+            # arbitrary filesystem paths or following symlinks.
+            links = []
+            with os.scandir(target) as entries:
+                for index, entry in enumerate(entries):
+                    if index >= outputs.MAX_FILES:
+                        links.append("<li>Listing limit reached. Use Studio's Files view.</li>")
+                        break
+                    if entry.is_symlink() or not (entry.is_file() or entry.is_dir()):
+                        continue
+                    child = path.rstrip('/') + '/' + entry.name
+                    # Absolute-to-ticket relative links work with or without a trailing slash.
+                    levels = len(path.split('/')) - 1
+                    href = '../' * levels + quote(child, safe='/')
+                    links.append(f'<li><a href="{href}">{escape(entry.name)}</a></li>')
+            return Response('<!doctype html><title>Output files</title><h1>Output files</h1><ul>' + ''.join(sorted(links)) + '</ul>', media_type="text/html", headers=headers)
+        kind = outputs.kind_for(target)
+        media_type = {"html": "text/html", "text": "text/plain", "pdf": "application/pdf"}.get(kind)
+        media_type = outputs.IMAGE_TYPES.get(target.suffix.lower(), media_type)
+        media_type = {".css": "text/css", ".js": "text/javascript", ".woff": "font/woff", ".woff2": "font/woff2"}.get(target.suffix.lower(), media_type)
+        if media_type is None:
+            return FileResponse(target, media_type="application/octet-stream", filename=target.name, headers=headers)
+        return FileResponse(target, media_type=media_type, headers=headers)
+    except FileNotFoundError as exc:
+        raise HTTPException(404, "Report file or job not found") from exc
     except (ValueError, OSError) as exc:
         raise HTTPException(400, str(exc)) from exc
 

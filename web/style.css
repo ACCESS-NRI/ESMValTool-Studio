@@ -251,6 +251,22 @@
 .batch-review{border:1px solid var(--border,#dce5df);border-radius:8px;padding:12px;margin-bottom:18px;font-size:12px;line-height:1.5}.batch-review[hidden]{display:none}
 .batch-recipes{max-height:240px;overflow:auto}.batch-item{display:flex;gap:10px;justify-content:space-between;padding:10px 0;border-top:1px solid var(--border,#dce5df)}.batch-item>div{min-width:0;overflow-wrap:anywhere}.batch-item strong,.batch-item span{display:block}.batch-item span{color:var(--muted,#617267);margin-top:4px}.batch-item button{align-self:start}.batch-item details p{font-size:11px}.batch-error{color:#b34b40}.form-grid input[readonly]{opacity:.7}
 
+/* Results is a full workspace, with the native report taking the available height. */
+.results-tab.active{display:flex;flex-direction:column;min-height:0;gap:16px}
+.results-toolbar,.report-toolbar{display:flex;align-items:end;gap:12px;flex-wrap:wrap}
+.results-toolbar label,.report-toolbar label{display:flex;flex-direction:column;gap:6px;font-size:12px;flex:1;min-width:180px}
+.results-toolbar select,.report-toolbar select{padding:9px;border:1px solid var(--border,#dce5df);border-radius:7px;background:var(--surface,#fff);color:inherit;max-width:100%;min-width:0;width:100%}
+.results-modes{display:flex;gap:8px}.results-modes [aria-pressed=true]{background:#17629e;color:white;border-color:#17629e}
+.result-report{flex:1;display:flex;flex-direction:column;gap:12px;min-width:0}
+.result-report iframe{width:100%;flex:1;min-height:360px;border:1px solid var(--border,#dce5df);border-radius:8px;background:#fff}
+.results-tab [hidden]{display:none!important}
+.report-toolbar a{text-decoration:none}.report-toolbar a:not([href]){pointer-events:none;opacity:.5}
+.result-files .outputs-layout{grid-template-columns:minmax(190px,1fr) minmax(0,4fr)}
+.result-files .output-preview{min-height:calc(100vh - 440px)}
+:root[data-theme=dark] :is(.results-toolbar select,.report-toolbar select){background:#192b3e;color:#d8ebf7}
+@media(max-width:850px){.result-files .outputs-layout{grid-template-columns:1fr}.result-report iframe{min-height:65vh}.results-toolbar,.report-toolbar{align-items:stretch}}
+@media(max-width:780px){.studio-nav{overflow-x:auto;flex-shrink:0}.studio-nav-item{white-space:nowrap;flex-shrink:0}.global-view-active .topbar{height:auto;min-height:72px;flex-wrap:wrap;padding:12px 17px;gap:12px}.global-view-active .top-actions{flex-wrap:wrap}}
+
 /* Recipe element deletion controls remain visible for mouse, touch and keyboard users. */
 .pipeline-node{position:relative;margin-bottom:8px}.pipeline-node .pipeline-item{margin-bottom:0;padding-right:38px}.pipeline-node .item-arrow{display:none}
 .pipeline-delete{position:absolute;right:6px;top:50%;transform:translateY(-50%);display:grid;place-items:center;width:28px;height:30px;padding:0;border:1px solid transparent;border-radius:6px;background:transparent;color:#a44a4a}.pipeline-delete:hover{background:#fff0f0;border-color:#e9bcbc}.pipeline-delete:focus-visible,.button.danger:focus-visible{outline:2px solid #bd5151;outline-offset:2px}
