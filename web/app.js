@@ -41,7 +41,7 @@ function persistDraft() {
   }, 500);
 }
 function canReplaceRecipe() {
-  return !state.dirty || window.confirm('This recipe has edits that have not been downloaded. Replace it and discard those edits?');
+  return !state.dirty || window.confirm('This recipe has unsaved edits. Replace it and discard those edits?');
 }
 window.addEventListener('beforeunload', (event) => {
   if (state.dirty) { event.preventDefault(); event.returnValue = ''; }
@@ -237,11 +237,72 @@ function updateYamlFeedback(summary) {
 }
 function setRecipe(yaml, name, dirty = false, libraryInfo = null, isNewRecipe = false) {
   state.libraryRequest = (state.libraryRequest || 0) + 1;
+  state.recipeVersion = (state.recipeVersion || 0) + 1;
+  state.fileHandle = null;
   state.yaml = yaml; state.name = name; state.libraryInfo = libraryInfo; state.dirty = dirty; state.selected = null; state.builderProfile = ''; state.builderBrick = ''; state.isNewRecipe = isNewRecipe;
   $('yamlEditor').value = yaml; $('documentName').textContent = name; $('yamlFileName').textContent = name.split('/').pop() || 'recipe.yml'; $('dirtyMark').hidden = !dirty;
   persistDraft();
   setYamlFeedback(); $('recipeGuide').hidden = true;
   parseCurrent(); setTab('pipeline');
+}
+const recipeFileTypes = [{description: 'ESMValTool recipe YAML', accept: {'text/yaml': ['.yml', '.yaml']}}];
+async function saveRecipe(saveAs = false) {
+  if (!state.yaml) return toast('Open or create a recipe first.', true);
+  if (state.savingRecipe) return;
+  const source = state.yaml;
+  const version = state.recipeVersion;
+  const filename = state.name.split('/').pop() || 'recipe.yml';
+  state.savingRecipe = true;
+  $('saveFile').disabled = true; $('saveRecipeAs').disabled = true;
+  let writable;
+  try {
+    let handle = saveAs ? null : state.fileHandle;
+    if (!handle && typeof window.showSaveFilePicker !== 'function') {
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(new Blob([source], {type: 'text/yaml'}));
+      link.download = filename;
+      document.body.append(link); link.click(); link.remove();
+      setTimeout(() => URL.revokeObjectURL(link.href), 1000);
+      // Downloads provide no completion signal. Keep the draft until a save is confirmed.
+      toast('YAML download started. Your recovery draft is kept in this tab.');
+      return;
+    }
+    if (!handle) handle = await window.showSaveFilePicker({suggestedName: filename, types: recipeFileTypes});
+    writable = await handle.createWritable();
+    await writable.write(source);
+    await writable.close();
+    writable = null;
+    if (state.recipeVersion !== version) return;
+    state.fileHandle = handle;
+    state.name = handle.name;
+    $('documentName').textContent = handle.name; $('yamlFileName').textContent = handle.name;
+    state.dirty = state.yaml !== source;
+    $('dirtyMark').hidden = !state.dirty;
+    persistDraft();
+    toast(state.dirty ? `Saved ${handle.name}. Newer edits still need saving.` : `Saved ${handle.name}.`);
+  } catch (error) {
+    if (writable) { try { await writable.abort(); } catch (_) {} }
+    if (error.name !== 'AbortError') toast(`Could not save recipe: ${error.message}`, true);
+  } finally {
+    state.savingRecipe = false;
+    $('saveFile').disabled = false; $('saveRecipeAs').disabled = false;
+  }
+}
+async function openRecipeFile() {
+  if (typeof window.showOpenFilePicker !== 'function') { $('fileInput').click(); return; }
+  if (!canReplaceRecipe()) return;
+  const version = state.recipeVersion;
+  const source = state.yaml;
+  try {
+    const [handle] = await window.showOpenFilePicker({multiple: false, types: recipeFileTypes});
+    const file = await handle.getFile();
+    const yaml = await file.text();
+    if ((state.recipeVersion !== version || state.yaml !== source) && !canReplaceRecipe()) return;
+    setRecipe(yaml, file.name);
+    state.fileHandle = handle;
+  } catch (error) {
+    if (error.name !== 'AbortError') toast(`Could not open recipe: ${error.message}`, true);
+  }
 }
 async function parseCurrent() {
   if (!state.yaml.trim()) {
@@ -325,7 +386,7 @@ function renderRecipeGuide() {
   const unassigned = state.summary.graph.variables.find((variable) => variable.profile === 'default');
   const profileAction = hasProfile && unassigned ? '<button type="button" data-guide="assign">Assign preprocessor →</button>'
     : `<button type="button" data-guide="profile">${hasProfile ? 'Edit preprocessor →' : '+ Preprocessor'}</button>`;
-  guide.innerHTML = `<div class="guide-head"><div><div class="eyebrow">RECIPE BUILDER</div><h2>Continue building</h2><p>Your first dataset, variable and diagnostic are ready. Add processing and any missing inputs, then download the YAML.</p></div><span class="guide-progress">${hasScript ? 'Script added' : 'Preprocessing only'}</span></div><div class="guide-actions"><button type="button" data-guide="dataset">+ Dataset</button>${profileAction}<button type="button" data-guide="variable">+ Variable</button><button type="button" data-guide="diagnostic">+ Diagnostic</button>${hasScript ? '' : '<button type="button" data-guide="script">Add script →</button>'}</div>`;
+  guide.innerHTML = `<div class="guide-head"><div><div class="eyebrow">RECIPE BUILDER</div><h2>Continue building</h2><p>Your first dataset, variable and diagnostic are ready. Add processing and any missing inputs, then save the recipe.</p></div><span class="guide-progress">${hasScript ? 'Script added' : 'Preprocessing only'}</span></div><div class="guide-actions"><button type="button" data-guide="dataset">+ Dataset</button>${profileAction}<button type="button" data-guide="variable">+ Variable</button><button type="button" data-guide="diagnostic">+ Diagnostic</button>${hasScript ? '' : '<button type="button" data-guide="script">Add script →</button>'}</div>`;
   guide.querySelectorAll('[data-guide]').forEach((button) => button.addEventListener('click', () => {
     const action = button.dataset.guide;
     if (action === 'profile') { setTab('builder'); if (!hasProfile) $('newProfile').click(); else $('builderProfile').focus(); }
@@ -1242,12 +1303,10 @@ $('yamlEditor').addEventListener('keydown', (event) => {
     event.preventDefault();
     event.target.setRangeText('  ', event.target.selectionStart, event.target.selectionEnd, 'end');
     event.target.dispatchEvent(new Event('input', { bubbles: true }));
-  } else if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 's') {
-    event.preventDefault(); $('saveFile').click();
   }
 });
 $('validateButton').addEventListener('click', async () => { await parseCurrent(); toast(!state.summary ? 'Fix the YAML before checking structure.' : state.summary.messages.length ? 'Recipe structure has issues.' : 'YAML structure checked. Gadi data and runtime compatibility still need review.', !state.summary || !!state.summary.messages.length); });
-$('openFile').addEventListener('click', () => $('fileInput').click());
+$('openFile').addEventListener('click', openRecipeFile);
 $('fileInput').addEventListener('change', async () => { const file = $('fileInput').files[0]; $('fileInput').value = ''; if (file && canReplaceRecipe()) setRecipe(await file.text(), file.name); });
 $('configOpenFiles').addEventListener('click', () => $('configFileInput').click());
 $('configOpenFolder').addEventListener('click', () => $('configFolderInput').click());
@@ -1282,7 +1341,13 @@ $('configRemoteForm').addEventListener('submit', async (event) => {
   } catch (error) { $('configStatus').textContent = error.message; }
   finally { button.disabled = false; }
 });
-$('saveFile').addEventListener('click', () => { if (!state.yaml) return toast('Open a recipe first.', true); const blob = new Blob([state.yaml], { type: 'text/yaml' }); const link = document.createElement('a'); link.href = URL.createObjectURL(blob); link.download = state.name.split('/').pop() || 'recipe.yml'; link.click(); setTimeout(() => URL.revokeObjectURL(link.href), 1000); state.dirty = false; $('dirtyMark').hidden = true; persistDraft(); });
+$('saveFile').addEventListener('click', () => saveRecipe());
+$('saveRecipeAs').addEventListener('click', () => saveRecipe(true));
+document.addEventListener('keydown', (event) => {
+  if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 's' && !$('recipeWorkspace').hidden) {
+    event.preventDefault(); saveRecipe(event.shiftKey);
+  }
+});
 $('runButton').addEventListener('click', () => { if (!state.yaml) return toast('Open a recipe first.', true); clearRunReview(); $('runModal').hidden = false; });
 $('closeScriptViewer').addEventListener('click', closeScriptViewer);
 $('scriptModal').addEventListener('click', (event) => { if (event.target === $('scriptModal')) closeScriptViewer(); });
